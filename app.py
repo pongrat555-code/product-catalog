@@ -43,27 +43,43 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 def get_or_create_folder(service):
-    """ค้นหาหรือสร้างโฟลเดอร์สำหรับเก็บข้อมูลใน Google Drive"""
-    query = f"name = '{FOLDER_NAME}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
-    items = results.get("files", [])
+    """ค้นหาโฟลเดอร์ Product_Catalog_Storage หากไม่พบจะสร้างใหม่"""
+    try:
+        query = "name = 'Product_Catalog_Storage' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+        results = service.files().list(q=query, fields="files(id, name)").execute()
+        items = results.get("files", [])
 
-    if items:
-        return items[0]["id"]
-    else:
-        file_metadata = {
-            "name": FOLDER_NAME,
-            "mimeType": "application/vnd.google-apps.folder",
-        }
-        folder = service.files().create(body=file_metadata, fields="id").execute()
-        return folder.get("id")
+        if items:
+            return items[0]["id"]
+        else:
+            # สร้างโฟลเดอร์ใหม่กรณีไม่พบ
+            file_metadata = {
+                "name": "Product_Catalog_Storage",
+                "mimeType": "application/vnd.google-apps.folder",
+            }
+            folder = service.files().create(body=file_metadata, fields="id").execute()
+            return folder.get("id")
+    except Exception as e:
+        st.error(f"❌ ไม่สามารถเข้าถึงหรือสร้างโฟลเดอร์บน Google Drive ได้: {e}")
+        st.stop()
 
 def upload_file_to_drive(service, folder_id, file_name, file_bytes, mime_type="image/jpeg"):
-    """อัปโหลดไฟล์ไปยัง Google Drive"""
-    file_metadata = {"name": file_name, "parents": [folder_id]}
-    media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=True)
-    uploaded_file = service.files().create(body=file_metadata, media_body=media, fields="id").execute()
-    return uploaded_file.get("id")
+    """อัปโหลดไฟล์โดยมีระบบดักจับ Error เพื่อแสดงข้อความที่แท้จริง"""
+    try:
+        file_metadata = {
+            "name": file_name,
+            "parents": [folder_id]  # กำหนดโฟลเดอร์ปลายทาง
+        }
+        media = MediaIoBaseUpload(io.BytesIO(file_bytes), mimetype=mime_type, resumable=True)
+        uploaded_file = service.files().create(
+            body=file_metadata, 
+            media_body=media, 
+            fields="id"
+        ).execute()
+        return uploaded_file.get("id")
+    except Exception as e:
+        st.error(f"❌ เกิดข้อผิดพลาดขณะอัปโหลดไฟล์ '{file_name}': {e}")
+        return None
 
 def download_file_from_drive(service, file_id):
     """ดาวน์โหลดไฟล์จาก Google Drive"""
