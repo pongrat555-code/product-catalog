@@ -56,7 +56,6 @@ def delete_image_from_cloudinary(image_url):
     """ลบรูปภาพออกจาก Cloudinary โดยดึง public_id จาก URL"""
     try:
         if image_url and "product_catalog/images" in image_url:
-            # สกัดหา public_id จาก URL
             filename = image_url.split("/")[-1].split(".")[0]
             public_id = f"product_catalog/images/{filename}"
             cloudinary.uploader.destroy(public_id, resource_type="image")
@@ -70,19 +69,16 @@ def delete_image_from_cloudinary(image_url):
 def load_catalog_data():
     """โหลดข้อมูลแคตตาล็อก (JSON) จาก Cloudinary"""
     try:
-        # ค้นหา URL ของไฟล์ JSON จาก Cloudinary
         resource = cloudinary.api.resource(
             JSON_PUBLIC_ID, resource_type="raw"
         )
         url = resource.get("secure_url")
         
-        # ดาวน์โหลดเนื้อหา JSON
         response = requests.get(url)
         if response.status_code == 200:
             return response.json()
         return []
     except cloudinary.exceptions.NotFound:
-        # กรณีเพิ่งเริ่มใช้งานครั้งแรกและยังไม่มีไฟล์ JSON
         return []
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลแคตตาล็อก: {e}")
@@ -94,7 +90,6 @@ def save_catalog_data(data):
     try:
         json_bytes = json.dumps(data, ensure_ascii=False, indent=4).encode("utf-8")
         
-        # อัปโหลดไฟล์ JSON ในรูปแบบ raw resource
         cloudinary.uploader.upload(
             json_bytes,
             public_id=JSON_PUBLIC_ID,
@@ -174,18 +169,22 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพสินค้า (3 มุมมอง):**")
+                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายในหน้าต่างใหม่):**")
                     img_cols = st.columns(3)
-                    labels = ["ด้านหน้า", "ด้านข้าง/หลัง", "ป้าย/รายละเอียด"]
+                    # 🔴 ปรับแก้ชื่อมุมมองรูปภาพทั้ง 3 รูปตามที่กำหนด
+                    labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
                     for idx, img_url in enumerate(prod.get("images", [])):
                         with img_cols[idx]:
                             if img_url:
-                                st.image(
-                                    img_url,
-                                    caption=labels[idx],
-                                    use_container_width=True,
+                                # 🔍 คลิกที่รูปจะเปิดลิงก์รูปต้นฉบับในหน้าต่างใหม่เพื่อดูย่อ/ขยายได้
+                                st.markdown(
+                                    f'<a href="{img_url}" target="_blank">'
+                                    f'<img src="{img_url}" style="width:100%; border-radius:5px; margin-bottom:5px;">'
+                                    f'</a>',
+                                    unsafe_allow_html=True,
                                 )
+                                st.caption(f"🔍 {labels[idx]} (คลิกเพื่อขยาย)")
                             else:
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
@@ -215,15 +214,16 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
         st.subheader("📷 ถ่ายรูปสินค้า 3 รูป")
         col_i1, col_i2, col_i3 = st.columns(3)
 
+        # 🔴 ปรับแก้ชื่อหัวข้อรูปภาพทั้ง 3 รูป
         with col_i1:
             st.markdown("**รูปที่ 1: ด้านหน้า**")
-            cam1 = st.camera_input("ถ่ายรูปที่ 1", key="add_cam1")
+            cam1 = st.camera_input("ถ่ายรูปด้านหน้า", key="add_cam1")
         with col_i2:
-            st.markdown("**รูปที่ 2: ด้านข้าง/หลัง**")
-            cam2 = st.camera_input("ถ่ายรูปที่ 2", key="add_cam2")
+            st.markdown("**รูปที่ 2: ด้านหลัง**")
+            cam2 = st.camera_input("ถ่ายรูปด้านหลัง", key="add_cam2")
         with col_i3:
-            st.markdown("**รูปที่ 3: ป้าย/รายละเอียด**")
-            cam3 = st.camera_input("ถ่ายรูปที่ 3", key="add_cam3")
+            st.markdown("**รูปที่ 3: ด้านข้าง**")
+            cam3 = st.camera_input("ถ่ายรูปด้านข้าง", key="add_cam3")
 
         submitted = st.form_submit_button("💾 บันทึกสินค้า")
 
@@ -304,12 +304,13 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
             st.subheader("📷 ถ่ายรูปใหม่เพื่อเปลี่ยนรูปเดิม")
             col_i1, col_i2, col_i3 = st.columns(3)
 
+            # 🔴 ปรับแก้ชื่อปุ่มถ่ายรูปเปลี่ยนใหม่
             with col_i1:
-                cam1 = st.camera_input("ถ่ายใหม่ รูปที่ 1", key="edit_cam1")
+                cam1 = st.camera_input("ถ่ายใหม่ รูปด้านหน้า", key="edit_cam1")
             with col_i2:
-                cam2 = st.camera_input("ถ่ายใหม่ รูปที่ 2", key="edit_cam2")
+                cam2 = st.camera_input("ถ่ายใหม่ รูปด้านหลัง", key="edit_cam2")
             with col_i3:
-                cam3 = st.camera_input("ถ่ายใหม่ รูปที่ 3", key="edit_cam3")
+                cam3 = st.camera_input("ถ่ายใหม่ รูปด้านข้าง", key="edit_cam3")
 
             update_submitted = st.form_submit_button("🔄 อัปเดตข้อมูล")
 
@@ -323,11 +324,9 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 with st.spinner("กำลังอัปเดตข้อมูลและรูปภาพ..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
-                            # ลบรูปเดิมบน Cloudinary
                             old_url = selected_prod["images"][idx]
                             delete_image_from_cloudinary(old_url)
 
-                            # อัปโหลดรูปใหม่
                             new_url = upload_image_to_cloudinary(
                                 cam.getvalue(),
                                 f"{selected_prod['id']}_img{idx+1}",
@@ -360,12 +359,10 @@ elif menu == "🗑️ ลบสินค้า":
         confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจากระบบถาวร")
         if st.button("❌ ยืนยันลบสินค้า", disabled=not confirm):
             with st.spinner("กำลังลบรูปภาพและข้อมูลบน Cloudinary..."):
-                # ลบรูปภาพทั้งหมดของสินค้านี้บน Cloudinary
                 for img_url in selected_prod.get("images", []):
                     if img_url:
                         delete_image_from_cloudinary(img_url)
 
-                # ลบรายการในลิสต์ข้อมูล
                 products_data = [
                     p for p in products_data if p["id"] != selected_prod["id"]
                 ]
