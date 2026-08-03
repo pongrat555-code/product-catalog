@@ -3,18 +3,17 @@ import json
 import os
 import streamlit as st
 from PIL import Image
+import cloudinary
+import cloudinary.uploader
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 
 # ==========================================
-# Google Drive Constants & Configurations
+# Google Drive & Cloudinary Configurations
 # ==========================================
 SCOPES = ["https://www.googleapis.com/auth/drive"]
-
-# 🔴 นำ FOLDER ID จาก Google Drive ของ pongrat555@gmail.com มาวางตรงนี้
-# (ดูวิธีเอา Folder ID ได้จากคำแนะนำด้านล่าง)
-SHARED_FOLDER_ID = "1A_R-pp8qtRP_X8rO1M71Mta6XMaf6LcZ"
+SHARED_FOLDER_ID = "18T7pXN-N8I7f4-x1A1B2C3D4E5F6G7H"  # 🔴 ใส่ Folder ID Google Drive ของคุณ
 DATA_FILE_NAME = "catalog_data.json"
 
 st.set_page_config(
@@ -24,12 +23,56 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ------------------------------------------
+# Cloudinary Configuration
+# ------------------------------------------
+def init_cloudinary():
+    """ตั้งค่าเชื่อมต่อ Cloudinary"""
+    if "cloudinary" in st.secrets:
+        cloudinary.config(
+            cloud_name=st.secrets["cloudinary"]["cloud_name"],
+            api_key=st.secrets["cloudinary"]["api_key"],
+            api_secret=st.secrets["cloudinary"]["api_secret"],
+            secure=True,
+        )
+    else:
+        st.error("❌ ไม่พบข้อมูลการตั้งค่า Cloudinary ใน Secrets")
+        st.stop()
 
-# ==========================================
+
+def upload_image_to_cloudinary(file_bytes, public_id):
+    """อัปโหลดรูปภาพไปยัง Cloudinary และส่งกลับเป็น Image URL"""
+    try:
+        response = cloudinary.uploader.upload(
+            file_bytes,
+            public_id=public_id,
+            folder="product_catalog",
+            overwrite=True,
+            resource_type="image",
+        )
+        return response.get("secure_url")
+    except Exception as e:
+        st.error(f"❌ เกิดข้อผิดพลาดขณะอัปโหลดรูปภาพไป Cloudinary: {e}")
+        return None
+
+
+def delete_image_from_cloudinary(image_url):
+    """ลบรูปภาพออกจาก Cloudinary โดยดึง public_id จาก URL"""
+    try:
+        if image_url and "product_catalog" in image_url:
+            # สกัดหา public_id จาก URL
+            filename = image_url.split("/")[-1].split(".")[0]
+            public_id = f"product_catalog/{filename}"
+            cloudinary.uploader.destroy(public_id)
+    except Exception:
+        pass
+
+
+# ------------------------------------------
 # Google Drive Helper Functions
-# ==========================================
+# ------------------------------------------
 def get_drive_service():
-    """เชื่อมต่อกับ Google Drive API ผ่าน Service Account"""
+    """เชื่อมต่อกับ Google Drive API"""
     if "gcp_service_account" in st.secrets:
         creds = service_account.Credentials.from_service_account_info(
             st.secrets["gcp_service_account"], scopes=SCOPES
@@ -39,42 +82,14 @@ def get_drive_service():
             "service_account.json", scopes=SCOPES
         )
     else:
-        st.error("❌ ไม่พบข้อมูลการยืนยันตัวตน Google Drive")
+        st.error("❌ ไม่พบข้อมูลการยืนยันตัวตน Google Drive (service_account.json หรือ Secrets)")
         st.stop()
 
     return build("drive", "v3", credentials=creds)
 
 
-def upload_file_to_drive(
-    service, folder_id, file_name, file_bytes, mime_type="image/jpeg"
-):
-    """อัปโหลดไฟล์ไปยัง โฟลเดอร์ที่แชร์ไว้"""
-    try:
-        file_metadata = {
-            "name": file_name,
-            "parents": [folder_id],  # ระบุให้เซฟลงโฟลเดอร์ของ pongrat555@gmail.com
-        }
-        media = MediaIoBaseUpload(
-            io.BytesIO(file_bytes), mimetype=mime_type, resumable=True
-        )
-        uploaded_file = (
-            service.files()
-            .create(
-                body=file_metadata,
-                media_body=media,
-                fields="id",
-                supportsAllDrives=True,  # รองรับโฟลเดอร์แชร์
-            )
-            .execute()
-        )
-        return uploaded_file.get("id")
-    except Exception as e:
-        st.error(f"❌ เกิดข้อผิดพลาดขณะอัปโหลดไฟล์ '{file_name}': {e}")
-        return None
-
-
 def download_file_from_drive(service, file_id):
-    """ดาวน์โหลดไฟล์จาก Google Drive"""
+    """ดาวน์โหลดไฟล์ JSON จาก Google Drive"""
     request = service.files().get_media(fileId=file_id)
     file_stream = io.BytesIO()
     downloader = MediaIoBaseDownload(file_stream, request)
@@ -83,14 +98,6 @@ def download_file_from_drive(service, file_id):
         _, done = downloader.next_chunk()
     file_stream.seek(0)
     return file_stream
-
-
-def delete_file_from_drive(service, file_id):
-    """ลบไฟล์ออกจาก Google Drive"""
-    try:
-        service.files().delete(fileId=file_id, supportsAllDrives=True).execute()
-    except Exception:
-        pass
 
 
 def load_catalog_data(service, folder_id):
@@ -116,7 +123,7 @@ def load_catalog_data(service, folder_id):
         else:
             return [], None
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลแคตตาล็อก: {e}")
         return [], None
 
 
@@ -133,25 +140,39 @@ def save_catalog_data(service, folder_id, data, existing_file_id=None):
         ).execute()
         return existing_file_id
     else:
-        return upload_file_to_drive(
-            service, folder_id, DATA_FILE_NAME, json_bytes, "application/json"
+        file_metadata = {"name": DATA_FILE_NAME, "parents": [folder_id]}
+        media = MediaIoBaseUpload(
+            io.BytesIO(json_bytes), mimetype="application/json", resumable=True
         )
+        file = (
+            service.files()
+            .create(
+                body=file_metadata,
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True,
+            )
+            .execute()
+        )
+        return file.get("id")
 
 
 # ==========================================
 # Main Application Layout
 # ==========================================
-st.title("📦 ระบบแคตตาล็อกสินค้า (Google Drive Cloud)")
-st.caption("จัดเก็บข้อมูลและรูปภาพบน Google Drive: **pongrat555@gmail.com**")
+st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary + Google Drive)")
+st.caption("จัดเก็บรูปภาพบน Cloudinary | บันทึกข้อมูลแคตตาล็อกบน Google Drive: **pongrat555@gmail.com**")
 
-# เชื่อมต่อ Google Drive
+# ตั้งค่า Cloudinary และ Google Drive
+init_cloudinary()
+
 try:
     drive_service = get_drive_service()
     products_data, json_file_id = load_catalog_data(
         drive_service, SHARED_FOLDER_ID
     )
 except Exception as e:
-    st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อ Google Drive: {e}")
+    st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อระบบ: {e}")
     st.stop()
 
 # Sidebar Navigation
@@ -166,11 +187,15 @@ menu = st.sidebar.radio(
     ],
 )
 
+st.sidebar.markdown("---")
+st.sidebar.caption("📱 รองรับการถ่ายภาพสินค้า 3 มุมมองด้วยกล้องโทรศัพท์มือถือ")
+
 # ------------------------------------------
 # 1. MENU: แสดงสินค้าทั้งหมด / ค้นหา
 # ------------------------------------------
 if menu == "🔍 แสดงสินค้า / ค้นหา":
     st.header("📋 รายการสินค้าในระบบ")
+
     search_term = st.text_input(
         "🔍 ค้นหา (ระบุชื่อ, รายละเอียด หรือแหล่งที่มา):", ""
     )
@@ -208,20 +233,14 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                     img_cols = st.columns(3)
                     labels = ["ด้านหน้า", "ด้านข้าง/หลัง", "ป้าย/รายละเอียด"]
 
-                    for idx, img_drive_id in enumerate(prod.get("images", [])):
+                    for idx, img_url in enumerate(prod.get("images", [])):
                         with img_cols[idx]:
-                            if img_drive_id:
-                                try:
-                                    img_stream = download_file_from_drive(
-                                        drive_service, img_drive_id
-                                    )
-                                    st.image(
-                                        img_stream,
-                                        caption=labels[idx],
-                                        use_container_width=True,
-                                    )
-                                except Exception:
-                                    st.caption(f"โหลดรูป {labels[idx]} ไม่สำเร็จ")
+                            if img_url:
+                                st.image(
+                                    img_url,
+                                    caption=labels[idx],
+                                    use_container_width=True,
+                                )
                             else:
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
@@ -230,9 +249,11 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
 # ------------------------------------------
 elif menu == "➕ เพิ่มสินค้าใหม่":
     st.header("➕ เพิ่มรายการสินค้าใหม่")
+    st.info("💡 สามารถกดถ่ายรูปสินค้า 3 มุมมองผ่านกล้องโทรศัพท์มือถือได้โดยตรง")
 
     with st.form("add_product_form", clear_on_submit=True):
-        name = st.text_input("ชื่อสินค้า *", placeholder="เช่น เสื้อยืด Oversize")
+        name = st.text_input("ชื่อสินค้า *", placeholder="เช่น เสื้อยืด Oversize สีดำ")
+
         col_c, col_s = st.columns(2)
         with col_c:
             cost_price = st.number_input(
@@ -243,41 +264,41 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                 "ราคาขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
             )
 
-        source = st.text_input("แหล่งที่มาของสินค้า")
-        detail = st.text_area("รายละเอียดสินค้า")
+        source = st.text_input("แหล่งที่มาของสินค้า", placeholder="เช่น โรงงานประตูน้ำ / Supplier A")
+        detail = st.text_area("รายละเอียดสินค้า", placeholder="ระบุขนาด สเปก สี หรือข้อมูลเพิ่มเติม...")
 
         st.subheader("📷 ถ่ายรูปสินค้า 3 รูป")
         col_i1, col_i2, col_i3 = st.columns(3)
 
         with col_i1:
-            cam1 = st.camera_input("ถ่ายรูปที่ 1 (หน้า)", key="add_cam1")
+            st.markdown("**รูปที่ 1: ด้านหน้า**")
+            cam1 = st.camera_input("ถ่ายรูปที่ 1", key="add_cam1")
         with col_i2:
-            cam2 = st.camera_input("ถ่ายรูปที่ 2 (ข้าง/หลัง)", key="add_cam2")
+            st.markdown("**รูปที่ 2: ด้านข้าง/หลัง**")
+            cam2 = st.camera_input("ถ่ายรูปที่ 2", key="add_cam2")
         with col_i3:
-            cam3 = st.camera_input("ถ่ายรูปที่ 3 (ป้าย/รายละเอียด)", key="add_cam3")
+            st.markdown("**รูปที่ 3: ป้าย/รายละเอียด**")
+            cam3 = st.camera_input("ถ่ายรูปที่ 3", key="add_cam3")
 
-        submitted = st.form_submit_button("💾 บันทึกสินค้าลง Google Drive")
+        submitted = st.form_submit_button("💾 บันทึกสินค้า")
 
         if submitted:
             if not name:
                 st.error("❌ กรุณากรอกชื่อสินค้า")
             else:
                 prod_id = f"PROD-{len(products_data) + 1:04d}"
-                image_ids = []
+                image_urls = []
 
-                with st.spinner("กำลังอัปโหลดรูปภาพไปยัง Google Drive..."):
+                with st.spinner("กำลังอัปโหลดรูปภาพไปยัง Cloudinary..."):
                     for idx, cam in enumerate([cam1, cam2, cam3], 1):
                         if cam:
                             file_bytes = cam.getvalue()
-                            img_drive_id = upload_file_to_drive(
-                                drive_service,
-                                SHARED_FOLDER_ID,
-                                f"{prod_id}_img{idx}.jpg",
-                                file_bytes,
+                            url = upload_image_to_cloudinary(
+                                file_bytes, f"{prod_id}_img{idx}"
                             )
-                            image_ids.append(img_drive_id)
+                            image_urls.append(url)
                         else:
-                            image_ids.append(None)
+                            image_urls.append(None)
 
                 new_product = {
                     "id": prod_id,
@@ -286,7 +307,7 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                     "selling_price": selling_price,
                     "source": source,
                     "detail": detail,
-                    "images": image_ids,
+                    "images": image_urls,
                 }
 
                 products_data.append(new_product)
@@ -347,9 +368,7 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
             with col_i3:
                 cam3 = st.camera_input("ถ่ายใหม่ รูปที่ 3", key="edit_cam3")
 
-            update_submitted = st.form_submit_button(
-                "🔄 อัปเดตข้อมูลบน Google Drive"
-            )
+            update_submitted = st.form_submit_button("🔄 อัปเดตข้อมูล")
 
             if update_submitted:
                 selected_prod["name"] = new_name
@@ -358,20 +377,19 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 selected_prod["source"] = new_source
                 selected_prod["detail"] = new_detail
 
-                with st.spinner("กำลังอัปเดตข้อมูลบน Google Drive..."):
+                with st.spinner("กำลังอัปเดตข้อมูลรูปภาพ..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
-                            old_id = selected_prod["images"][idx]
-                            if old_id:
-                                delete_file_from_drive(drive_service, old_id)
+                            # ลบรูปเดิมบน Cloudinary
+                            old_url = selected_prod["images"][idx]
+                            delete_image_from_cloudinary(old_url)
 
-                            new_img_id = upload_file_to_drive(
-                                drive_service,
-                                SHARED_FOLDER_ID,
-                                f"{selected_prod['id']}_img{idx+1}.jpg",
+                            # อัปโหลดรูปใหม่
+                            new_url = upload_image_to_cloudinary(
                                 cam.getvalue(),
+                                f"{selected_prod['id']}_img{idx+1}",
                             )
-                            selected_prod["images"][idx] = new_img_id
+                            selected_prod["images"][idx] = new_url
 
                     json_file_id = save_catalog_data(
                         drive_service,
@@ -402,13 +420,15 @@ elif menu == "🗑️ ลบสินค้า":
             f"⚠️ คุณกำลังจะลบรายการ: **{selected_prod['name']}** (รหัสสินค้า: {selected_prod['id']})"
         )
 
-        confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจาก Google Drive ถาวร")
+        confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจากระบบถาวร")
         if st.button("❌ ยืนยันลบสินค้า", disabled=not confirm):
-            with st.spinner("กำลังลบข้อมูลออกจาก Google Drive..."):
-                for img_id in selected_prod.get("images", []):
-                    if img_id:
-                        delete_file_from_drive(drive_service, img_id)
+            with st.spinner("กำลังลบรูปภาพบน Cloudinary และข้อมูลบน Google Drive..."):
+                # ลบรูปภาพทั้งหมดบน Cloudinary
+                for img_url in selected_prod.get("images", []):
+                    if img_url:
+                        delete_image_from_cloudinary(img_url)
 
+                # ลบรายการใน JSON
                 products_data = [
                     p for p in products_data if p["id"] != selected_prod["id"]
                 ]
