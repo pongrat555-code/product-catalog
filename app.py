@@ -8,9 +8,10 @@ import cloudinary.uploader
 import cloudinary.api
 
 # ==========================================
-# Cloudinary Configurations
+# Cloudinary Configurations & Constants
 # ==========================================
 JSON_PUBLIC_ID = "product_catalog/catalog_data"
+TARGET_HEIGHT = 2500  # 🔴 กำหนดความสูงของรูปภาพคงที่ที่ 2,500 pixels
 
 st.set_page_config(
     page_title="Product Catalog System",
@@ -33,14 +34,47 @@ def init_cloudinary():
         st.stop()
 
 
+def process_image_resolution(file_bytes, target_height=2500):
+    """
+    ปรับขนาดรูปภาพให้มีความสูงคงที่ที่ 2,500 pixels
+    โดยคำนวณความกว้างตามสัดส่วนเดิม (Aspect Ratio)
+    """
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        
+        # แปลงเป็น RGB ป้องกันปัญหาไฟล์ชนิดอื่น
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        orig_width, orig_height = img.size
+        
+        # คำนวณความกว้างตามสัดส่วนภาพเดิม
+        aspect_ratio = orig_width / orig_height
+        target_width = int(target_height * aspect_ratio)
+        
+        # ปรับขนาดรูปภาพด้วยอัลกอริทึม LANCZOS (ให้ความคมชัดสูง)
+        resized_img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        
+        # บันทึกลง Memory Buffer
+        buffer = io.BytesIO()
+        resized_img.save(buffer, format="JPEG", quality=92)
+        return buffer.getvalue()
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาดในการปรับขนาดรูปภาพ: {e}")
+        return file_bytes
+
+
 # ------------------------------------------
 # Cloudinary Helper Functions for Images
 # ------------------------------------------
 def upload_image_to_cloudinary(file_bytes, public_id):
-    """อัปโหลดรูปภาพไปยัง Cloudinary และส่งกลับเป็น Image URL"""
+    """ปรับขนาดรูปภาพเป็นความสูง 2,500px แล้วอัปโหลดไปยัง Cloudinary"""
     try:
+        # 🔴 ปรับความละเอียดรูปภาพให้ความสูงเท่ากับ 2,500 pixels ก่อนอัปโหลด
+        processed_bytes = process_image_resolution(file_bytes, target_height=TARGET_HEIGHT)
+        
         response = cloudinary.uploader.upload(
-            file_bytes,
+            processed_bytes,
             public_id=public_id,
             folder="product_catalog/images",
             overwrite=True,
@@ -107,7 +141,7 @@ def save_catalog_data(data):
 # Main Application Layout
 # ==========================================
 st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
-st.caption("จัดเก็บรูปภาพและข้อมูลแคตตาล็อกทั้งหมดบน **Cloudinary**")
+st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 2,500px) และข้อมูลแคตตาล็อกทั้งหมดบน **Cloudinary**")
 
 # ตั้งค่า Cloudinary
 init_cloudinary()
@@ -169,15 +203,13 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายในหน้าต่างใหม่):**")
+                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายแบบ HD ในหน้าต่างใหม่):**")
                     img_cols = st.columns(3)
-                    # 🔴 ปรับแก้ชื่อมุมมองรูปภาพทั้ง 3 รูปตามที่กำหนด
                     labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
                     for idx, img_url in enumerate(prod.get("images", [])):
                         with img_cols[idx]:
                             if img_url:
-                                # 🔍 คลิกที่รูปจะเปิดลิงก์รูปต้นฉบับในหน้าต่างใหม่เพื่อดูย่อ/ขยายได้
                                 st.markdown(
                                     f'<a href="{img_url}" target="_blank">'
                                     f'<img src="{img_url}" style="width:100%; border-radius:5px; margin-bottom:5px;">'
@@ -193,7 +225,7 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
 # ------------------------------------------
 elif menu == "➕ เพิ่มสินค้าใหม่":
     st.header("➕ เพิ่มรายการสินค้าใหม่")
-    st.info("💡 สามารถกดถ่ายรูปสินค้า 3 มุมมองผ่านกล้องโทรศัพท์มือถือได้โดยตรง")
+    st.info("💡 ภาพถ่ายจะถูกปรับขนาดความสูงที่ 2,500 pixels โดยอัตโนมัติเพื่อความคมชัดสูง")
 
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อสินค้า *", placeholder="เช่น เสื้อยืด Oversize สีดำ")
@@ -214,7 +246,6 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
         st.subheader("📷 ถ่ายรูปสินค้า 3 รูป")
         col_i1, col_i2, col_i3 = st.columns(3)
 
-        # 🔴 ปรับแก้ชื่อหัวข้อรูปภาพทั้ง 3 รูป
         with col_i1:
             st.markdown("**รูปที่ 1: ด้านหน้า**")
             cam1 = st.camera_input("ถ่ายรูปด้านหน้า", key="add_cam1")
@@ -234,7 +265,7 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                 prod_id = f"PROD-{len(products_data) + 1:04d}"
                 image_urls = []
 
-                with st.spinner("กำลังอัปโหลดรูปภาพไปยัง Cloudinary..."):
+                with st.spinner("กำลังปรับขนาดเป็น 2,500px และอัปโหลดไปยัง Cloudinary..."):
                     for idx, cam in enumerate([cam1, cam2, cam3], 1):
                         if cam:
                             file_bytes = cam.getvalue()
@@ -304,7 +335,6 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
             st.subheader("📷 ถ่ายรูปใหม่เพื่อเปลี่ยนรูปเดิม")
             col_i1, col_i2, col_i3 = st.columns(3)
 
-            # 🔴 ปรับแก้ชื่อปุ่มถ่ายรูปเปลี่ยนใหม่
             with col_i1:
                 cam1 = st.camera_input("ถ่ายใหม่ รูปด้านหน้า", key="edit_cam1")
             with col_i2:
@@ -321,7 +351,7 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 selected_prod["source"] = new_source
                 selected_prod["detail"] = new_detail
 
-                with st.spinner("กำลังอัปเดตข้อมูลและรูปภาพ..."):
+                with st.spinner("กำลังประมวลผลรูปถ่ายและอัปเดตข้อมูล..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
                             old_url = selected_prod["images"][idx]
