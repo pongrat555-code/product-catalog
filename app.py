@@ -1,20 +1,16 @@
 import io
 import json
-import os
+import requests
 import streamlit as st
 from PIL import Image
 import cloudinary
 import cloudinary.uploader
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+import cloudinary.api
 
 # ==========================================
-# Google Drive & Cloudinary Configurations
+# Cloudinary Configurations
 # ==========================================
-SCOPES = ["https://www.googleapis.com/auth/drive"]
-SHARED_FOLDER_ID = "18T7pXN-N8I7f4-x1A1B2C3D4E5F6G7H"  # 🔴 ใส่ Folder ID Google Drive ของคุณ
-DATA_FILE_NAME = "catalog_data.json"
+JSON_PUBLIC_ID = "product_catalog/catalog_data"
 
 st.set_page_config(
     page_title="Product Catalog System",
@@ -23,9 +19,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ------------------------------------------
-# Cloudinary Configuration
-# ------------------------------------------
 def init_cloudinary():
     """ตั้งค่าเชื่อมต่อ Cloudinary"""
     if "cloudinary" in st.secrets:
@@ -40,13 +33,16 @@ def init_cloudinary():
         st.stop()
 
 
+# ------------------------------------------
+# Cloudinary Helper Functions for Images
+# ------------------------------------------
 def upload_image_to_cloudinary(file_bytes, public_id):
     """อัปโหลดรูปภาพไปยัง Cloudinary และส่งกลับเป็น Image URL"""
     try:
         response = cloudinary.uploader.upload(
             file_bytes,
             public_id=public_id,
-            folder="product_catalog",
+            folder="product_catalog/images",
             overwrite=True,
             resource_type="image",
         )
@@ -59,121 +55,70 @@ def upload_image_to_cloudinary(file_bytes, public_id):
 def delete_image_from_cloudinary(image_url):
     """ลบรูปภาพออกจาก Cloudinary โดยดึง public_id จาก URL"""
     try:
-        if image_url and "product_catalog" in image_url:
+        if image_url and "product_catalog/images" in image_url:
             # สกัดหา public_id จาก URL
             filename = image_url.split("/")[-1].split(".")[0]
-            public_id = f"product_catalog/{filename}"
-            cloudinary.uploader.destroy(public_id)
+            public_id = f"product_catalog/images/{filename}"
+            cloudinary.uploader.destroy(public_id, resource_type="image")
     except Exception:
         pass
 
 
 # ------------------------------------------
-# Google Drive Helper Functions
+# Cloudinary Helper Functions for JSON Data
 # ------------------------------------------
-def get_drive_service():
-    """เชื่อมต่อกับ Google Drive API"""
-    if "gcp_service_account" in st.secrets:
-        creds = service_account.Credentials.from_service_account_info(
-            st.secrets["gcp_service_account"], scopes=SCOPES
-        )
-    elif os.path.exists("service_account.json"):
-        creds = service_account.Credentials.from_service_account_file(
-            "service_account.json", scopes=SCOPES
-        )
-    else:
-        st.error("❌ ไม่พบข้อมูลการยืนยันตัวตน Google Drive (service_account.json หรือ Secrets)")
-        st.stop()
-
-    return build("drive", "v3", credentials=creds)
-
-
-def download_file_from_drive(service, file_id):
-    """ดาวน์โหลดไฟล์ JSON จาก Google Drive"""
-    request = service.files().get_media(fileId=file_id)
-    file_stream = io.BytesIO()
-    downloader = MediaIoBaseDownload(file_stream, request)
-    done = False
-    while not done:
-        _, done = downloader.next_chunk()
-    file_stream.seek(0)
-    return file_stream
-
-
-def load_catalog_data(service, folder_id):
-    """โหลดข้อมูลแคตตาล็อก (JSON) จาก Google Drive"""
+def load_catalog_data():
+    """โหลดข้อมูลแคตตาล็อก (JSON) จาก Cloudinary"""
     try:
-        query = f"'{folder_id}' in parents and name = '{DATA_FILE_NAME}' and trashed = false"
-        results = (
-            service.files()
-            .list(
-                q=query,
-                fields="files(id, name)",
-                supportsAllDrives=True,
-                includeItemsFromAllDrives=True,
-            )
-            .execute()
+        # ค้นหา URL ของไฟล์ JSON จาก Cloudinary
+        resource = cloudinary.api.resource(
+            JSON_PUBLIC_ID, resource_type="raw"
         )
-        items = results.get("files", [])
-
-        if items:
-            file_id = items[0]["id"]
-            stream = download_file_from_drive(service, file_id)
-            return json.loads(stream.read().decode("utf-8")), file_id
-        else:
-            return [], None
+        url = resource.get("secure_url")
+        
+        # ดาวน์โหลดเนื้อหา JSON
+        response = requests.get(url)
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except cloudinary.exceptions.NotFound:
+        # กรณีเพิ่งเริ่มใช้งานครั้งแรกและยังไม่มีไฟล์ JSON
+        return []
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูลแคตตาล็อก: {e}")
-        return [], None
+        return []
 
 
-def save_catalog_data(service, folder_id, data, existing_file_id=None):
-    """บันทึกข้อมูลแคตตาล็อกลงไฟล์ JSON ใน Google Drive"""
-    json_bytes = json.dumps(data, ensure_ascii=False, indent=4).encode("utf-8")
-
-    if existing_file_id:
-        media = MediaIoBaseUpload(
-            io.BytesIO(json_bytes), mimetype="application/json", resumable=True
+def save_catalog_data(data):
+    """บันทึกข้อมูลแคตตาล็อกลงไฟล์ JSON ใน Cloudinary"""
+    try:
+        json_bytes = json.dumps(data, ensure_ascii=False, indent=4).encode("utf-8")
+        
+        # อัปโหลดไฟล์ JSON ในรูปแบบ raw resource
+        cloudinary.uploader.upload(
+            json_bytes,
+            public_id=JSON_PUBLIC_ID,
+            overwrite=True,
+            resource_type="raw",
+            invalidate=True,
         )
-        service.files().update(
-            fileId=existing_file_id, media_body=media, supportsAllDrives=True
-        ).execute()
-        return existing_file_id
-    else:
-        file_metadata = {"name": DATA_FILE_NAME, "parents": [folder_id]}
-        media = MediaIoBaseUpload(
-            io.BytesIO(json_bytes), mimetype="application/json", resumable=True
-        )
-        file = (
-            service.files()
-            .create(
-                body=file_metadata,
-                media_body=media,
-                fields="id",
-                supportsAllDrives=True,
-            )
-            .execute()
-        )
-        return file.get("id")
+        return True
+    except Exception as e:
+        st.error(f"❌ เกิดข้อผิดพลาดขณะบันทึกข้อมูลแคตตาล็อก: {e}")
+        return False
 
 
 # ==========================================
 # Main Application Layout
 # ==========================================
-st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary + Google Drive)")
-st.caption("จัดเก็บรูปภาพบน Cloudinary | บันทึกข้อมูลแคตตาล็อกบน Google Drive: **pongrat555@gmail.com**")
+st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
+st.caption("จัดเก็บรูปภาพและข้อมูลแคตตาล็อกทั้งหมดบน **Cloudinary**")
 
-# ตั้งค่า Cloudinary และ Google Drive
+# ตั้งค่า Cloudinary
 init_cloudinary()
 
-try:
-    drive_service = get_drive_service()
-    products_data, json_file_id = load_catalog_data(
-        drive_service, SHARED_FOLDER_ID
-    )
-except Exception as e:
-    st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อระบบ: {e}")
-    st.stop()
+# โหลดข้อมูลสินค้า
+products_data = load_catalog_data()
 
 # Sidebar Navigation
 st.sidebar.title("📌 เมนูหลัก")
@@ -311,12 +256,10 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                 }
 
                 products_data.append(new_product)
-                json_file_id = save_catalog_data(
-                    drive_service, SHARED_FOLDER_ID, products_data, json_file_id
-                )
-                st.success(
-                    f"✅ บันทึกสินค้า '{name}' เรียบร้อยแล้ว (รหัสสินค้า: {prod_id})"
-                )
+                if save_catalog_data(products_data):
+                    st.success(
+                        f"✅ บันทึกสินค้า '{name}' เรียบร้อยแล้ว (รหัสสินค้า: {prod_id})"
+                    )
 
 # ------------------------------------------
 # 3. MENU: แก้ไขข้อมูลสินค้า
@@ -377,7 +320,7 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 selected_prod["source"] = new_source
                 selected_prod["detail"] = new_detail
 
-                with st.spinner("กำลังอัปเดตข้อมูลรูปภาพ..."):
+                with st.spinner("กำลังอัปเดตข้อมูลและรูปภาพ..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
                             # ลบรูปเดิมบน Cloudinary
@@ -391,15 +334,9 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                             )
                             selected_prod["images"][idx] = new_url
 
-                    json_file_id = save_catalog_data(
-                        drive_service,
-                        SHARED_FOLDER_ID,
-                        products_data,
-                        json_file_id,
-                    )
-
-                st.success("✅ อัปเดตข้อมูลสินค้าสำเร็จ!")
-                st.rerun()
+                    if save_catalog_data(products_data):
+                        st.success("✅ อัปเดตข้อมูลสินค้าสำเร็จ!")
+                        st.rerun()
 
 # ------------------------------------------
 # 4. MENU: ลบสินค้า
@@ -422,19 +359,16 @@ elif menu == "🗑️ ลบสินค้า":
 
         confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจากระบบถาวร")
         if st.button("❌ ยืนยันลบสินค้า", disabled=not confirm):
-            with st.spinner("กำลังลบรูปภาพบน Cloudinary และข้อมูลบน Google Drive..."):
-                # ลบรูปภาพทั้งหมดบน Cloudinary
+            with st.spinner("กำลังลบรูปภาพและข้อมูลบน Cloudinary..."):
+                # ลบรูปภาพทั้งหมดของสินค้านี้บน Cloudinary
                 for img_url in selected_prod.get("images", []):
                     if img_url:
                         delete_image_from_cloudinary(img_url)
 
-                # ลบรายการใน JSON
+                # ลบรายการในลิสต์ข้อมูล
                 products_data = [
                     p for p in products_data if p["id"] != selected_prod["id"]
                 ]
-                json_file_id = save_catalog_data(
-                    drive_service, SHARED_FOLDER_ID, products_data, json_file_id
-                )
-
-            st.success("✅ ลบสินค้าเรียบร้อยแล้ว!")
-            st.rerun()
+                if save_catalog_data(products_data):
+                    st.success("✅ ลบสินค้าเรียบร้อยแล้ว!")
+                    st.rerun()
