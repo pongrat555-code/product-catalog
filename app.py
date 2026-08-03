@@ -129,13 +129,40 @@ def save_catalog_data(data):
         return False
 
 
+# 🔴 ฟังก์ชันแสดง Modal รูปภาพขนาดจริงของสินค้าทั้ง 3 รูป
+@st.dialog("🔍 ภาพสินค้าขนาดจริง (ครบ 3 มุมมอง)")
+def show_product_images_dialog(prod):
+    st.subheader(f"🔹 {prod['name']}")
+    st.write(f"**ราคาขาย:** ฿{prod['selling_price']:,.2f} บาท | **รหัสสินค้า:** `{prod['id']}`")
+    st.caption("คลิกที่ภาพเพื่อขยายใหญ่เปิดดูในแท็บใหม่")
+
+    tab1, tab2, tab3 = st.tabs(["📷 รูปด้านหน้า", "📷 รูปด้านหลัง", "📷 รูปด้านข้าง"])
+    images = prod.get("images", [])
+
+    labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
+    tabs = [tab1, tab2, tab3]
+
+    for idx, tab in enumerate(tabs):
+        with tab:
+            img_url = images[idx] if idx < len(images) and images[idx] else None
+            if img_url:
+                st.markdown(
+                    f'<a href="{img_url}" target="_blank">'
+                    f'<img src="{img_url}" style="width:100%; border-radius:8px; margin-bottom:10px;">'
+                    f'</a>',
+                    unsafe_allow_html=True,
+                )
+                st.caption(f"🔍 รูป{labels[idx]} (ขนาดจริง)")
+            else:
+                st.info(f"ไม่มีรูปภาพ{labels[idx]}")
+
+
 # ==========================================
 # Main Application Setup
 # ==========================================
 init_cloudinary()
 products_data = load_catalog_data()
 
-# 🔴 ตรวจสอบ URL Query Parameters ว่ามีคำสั่งเปิดโหมดแสดงดัชนีหรือไม่ (?view=index)
 query_params = st.query_params
 is_index_view = query_params.get("view") == "index"
 
@@ -143,7 +170,6 @@ is_index_view = query_params.get("view") == "index"
 # Mode 1: หน้าแสดงดัชนี (เมื่อเปิดผ่านแท็บใหม่) -> ซ่อน Sidebar
 # ------------------------------------------
 if is_index_view:
-    # 🔴 CSS บังคับซ่อน Sidebar Menu และปุ่มพับเก็บ Sidebar ทั้งหมด
     st.markdown(
         """
         <style>
@@ -161,7 +187,6 @@ if is_index_view:
     if not products_data:
         st.info("ยังไม่มีข้อมูลสินค้าในระบบ")
     else:
-        # เรียงลำดับตามชื่อสินค้า (ก-ฮ / A-Z)
         sorted_products = sorted(products_data, key=lambda x: x["name"])
         total_items = len(sorted_products)
         total_pages = math.ceil(total_items / ITEMS_PER_PAGE)
@@ -193,7 +218,6 @@ if is_index_view:
 
         st.markdown("---")
 
-        # แสดงรายการสินค้าในหน้านั้น (30 รายการ/หน้า)
         start_idx = (st.session_state.current_page - 1) * ITEMS_PER_PAGE
         end_idx = start_idx + ITEMS_PER_PAGE
         page_products = sorted_products[start_idx:end_idx]
@@ -206,34 +230,27 @@ if is_index_view:
             with col:
                 front_img_url = prod["images"][0] if prod.get("images") and prod["images"][0] else None
 
-                img_html = (
-                    f'<a href="{front_img_url}" target="_blank">'
-                    f'<img src="{front_img_url}" style="width:300px; max-width:100%; height:auto; border-radius:8px; display:block; margin:0 auto 10px auto;">'
-                    f'</a>'
-                    if front_img_url
-                    else '<div style="width:100%; height:200px; background-color:#E5E7EB; display:flex; align-items:center; justify-content:center; border-radius:8px; margin-bottom:10px; color:#9CA3AF;">ไม่มีรูปภาพด้านหน้า</div>'
-                )
+                # สร้างกรอบจำลองสำหรับการ์ด
+                with st.container(border=True):
+                    if front_img_url:
+                        st.image(front_img_url, use_container_width=True)
+                    else:
+                        st.caption("ไม่มีรูปภาพด้านหน้า")
 
-                card_html = f"""
-                <div style="
-                    border: 1px solid #E5E7EB;
-                    border-radius: 10px;
-                    padding: 12px;
-                    margin-bottom: 20px;
-                    background-color: #FFFFFF;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-                    text-align: center;
-                ">
-                    {img_html}
-                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 6px; color: #1F2937; line-height: 1.3; height: 42px; overflow: hidden; text-overflow: ellipsis;">
-                        {prod['name']}
-                    </div>
-                    <div style="font-size: 16px; color: #059669; font-weight: bold;">
-                        ฿{prod['selling_price']:,.2f} บาท
-                    </div>
-                </div>
-                """
-                st.markdown(card_html, unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='font-weight: bold; font-size: 15px; text-align: center; height: 40px; overflow: hidden; color: #1F2937;'>"
+                        f"{prod['name']}</div>",
+                        unsafe_allow_html=True,
+                    )
+                    st.markdown(
+                        f"<div style='font-size: 15px; color: #059669; font-weight: bold; text-align: center; margin-bottom: 8px;'>"
+                        f"฿{prod['selling_price']:,.2f} บาท</div>",
+                        unsafe_allow_html=True,
+                    )
+
+                    # 🔴 ปุ่มคลิกดูรูปภาพขนาดจริงทั้ง 3 รูป
+                    if st.button("🔍 ดูรูปขนาดจริง (3 รูป)", key=f"btn_img_{prod['id']}", use_container_width=True):
+                        show_product_images_dialog(prod)
 
         st.markdown("---")
 
@@ -268,7 +285,6 @@ else:
     st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
     st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 1,920px | Resolution: 96 DPI) บน **Cloudinary**")
 
-    # Sidebar Navigation
     st.sidebar.title("📌 เมนูหลัก")
     menu = st.sidebar.radio(
         "เลือกรายการทำรายการ:",
@@ -280,7 +296,6 @@ else:
         ],
     )
 
-    # 🔴 แสดงปุ่ม/ลิงก์สำหรับคลิกเปิดเมนู "สร้างดัชนี" ในแท็บใหม่
     st.sidebar.markdown("---")
     st.sidebar.markdown(
         """
