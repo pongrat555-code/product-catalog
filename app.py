@@ -1,5 +1,6 @@
 import io
 import json
+import math
 import requests
 import streamlit as st
 from PIL import Image
@@ -11,8 +12,9 @@ import cloudinary.api
 # Cloudinary Configurations & Constants
 # ==========================================
 JSON_PUBLIC_ID = "product_catalog/catalog_data"
-TARGET_HEIGHT = 1920  # 🔴 กำหนดความสูงของรูปภาพใหม่ที่ 1,920 pixels
-TARGET_DPI = (96, 96)  # 🔴 กำหนดความละเอียด DPI ใหม่ไว้ที่ 96 DPI
+TARGET_HEIGHT = 1920  # กำหนดความสูงของรูปภาพที่ 1,920 pixels
+TARGET_DPI = (96, 96)  # กำหนดความละเอียด DPI ไว้ที่ 96 DPI
+ITEMS_PER_PAGE = 30  # 🔴 กำหนดจำนวนสินค้าต่อหน้าในเมนูดัชนี (30 รายการ/หน้า)
 
 st.set_page_config(
     page_title="Product Catalog System",
@@ -43,26 +45,22 @@ def process_image_resolution(file_bytes, target_height=1920, target_dpi=(96, 96)
     try:
         img = Image.open(io.BytesIO(file_bytes))
         
-        # แปลงเป็น RGB ป้องกันปัญหาไฟล์ชนิดอื่น
         if img.mode in ("RGBA", "P"):
             img = img.convert("RGB")
             
         orig_width, orig_height = img.size
-        
-        # คำนวณความกว้างตามสัดส่วนภาพเดิม (Aspect Ratio)
         aspect_ratio = orig_width / orig_height
         target_width = int(target_height * aspect_ratio)
         
-        # ปรับขนาดรูปภาพด้วยอัลกอริทึม LANCZOS
         resized_img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
-        # บันทึกลง Memory Buffer พร้อมกำหนดค่า DPI = 96
         buffer = io.BytesIO()
         resized_img.save(
             buffer, 
             format="JPEG", 
-            quality=92, 
-            dpi=target_dpi  # 🔴 ฝังค่า 96 DPI ลงใน EXIF Metadata ของรูปภาพ
+            quality=98, 
+            subsampling=0,
+            dpi=target_dpi
         )
         return buffer.getvalue()
     except Exception as e:
@@ -76,7 +74,6 @@ def process_image_resolution(file_bytes, target_height=1920, target_dpi=(96, 96)
 def upload_image_to_cloudinary(file_bytes, public_id):
     """ปรับขนาดรูปภาพเป็นความสูง 1,920px + 96 DPI แล้วอัปโหลดไปยัง Cloudinary"""
     try:
-        # 🔴 ประมวลผลรูปภาพให้ได้ความสูง 1,920px และความละเอียด 96 DPI ก่อนอัปโหลด
         processed_bytes = process_image_resolution(
             file_bytes, 
             target_height=TARGET_HEIGHT, 
@@ -159,12 +156,13 @@ init_cloudinary()
 # โหลดข้อมูลสินค้า
 products_data = load_catalog_data()
 
-# Sidebar Navigation
+# 🔴 เพิ่มเมนู "📖 สร้างดัชนี" ใน Sidebar
 st.sidebar.title("📌 เมนูหลัก")
 menu = st.sidebar.radio(
     "เลือกรายการทำรายการ:",
     [
         "🔍 แสดงสินค้า / ค้นหา",
+        "📖 สร้างดัชนี",
         "➕ เพิ่มสินค้าใหม่",
         "✏️ แก้ไขข้อมูลสินค้า",
         "🗑️ ลบสินค้า",
@@ -231,7 +229,122 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
 # ------------------------------------------
-# 2. MENU: เพิ่มสินค้าใหม่
+# 2. MENU: สร้างดัชนี (Index Catalog - 30 รายการ/หน้า)
+# ------------------------------------------
+elif menu == "📖 สร้างดัชนี":
+    st.header("📖 ดัชนีแคตตาล็อกสินค้า (Index Book)")
+
+    if not products_data:
+        st.info("ยังไม่มีข้อมูลสินค้าในระบบ")
+    else:
+        # 1. เรียงลำดับสินค้าตามชื่อสินค้า (ก-ฮ / A-Z)
+        sorted_products = sorted(products_data, key=lambda x: x["name"])
+        total_items = len(sorted_products)
+        total_pages = math.ceil(total_items / ITEMS_PER_PAGE)
+
+        # 2. จัดการ Session State สำหรับตัวเลื่อนหน้า (Pagination)
+        if "current_page" not in st.session_state:
+            st.session_state.current_page = 1
+
+        # ป้องกันกรณีลบสินค้าแล้วหน้าเกินจำนวนหน้าทั้งหมด
+        if st.session_state.current_page > total_pages:
+            st.session_state.current_page = max(1, total_pages)
+
+        # 3. แถบควบคุมการเปลี่ยนหน้า (Top Pagination Controls)
+        ctrl_col1, ctrl_col2, ctrl_col3 = st.columns([1, 2, 1])
+
+        with ctrl_col1:
+            if st.button("◄ หน้าก่อนหน้า", disabled=(st.session_state.current_page <= 1), key="top_prev"):
+                st.session_state.current_page -= 1
+                st.rerun()
+
+        with ctrl_col2:
+            st.markdown(
+                f"<h4 style='text-align: center; margin: 0;'>หน้า {st.session_state.current_page} / {total_pages} (รวมทั้งหมด {total_items} รายการ)</h4>",
+                unsafe_allow_html=True,
+            )
+
+        with ctrl_col3:
+            if st.button("หน้าถัดไป ►", disabled=(st.session_state.current_page >= total_pages), key="top_next"):
+                st.session_state.current_page += 1
+                st.rerun()
+
+        st.markdown("---")
+
+        # 4. คำนวณช่วงของสินค้าที่จะแสดงในหน้านี้
+        start_idx = (st.session_state.current_page - 1) * ITEMS_PER_PAGE
+        end_idx = start_idx + ITEMS_PER_PAGE
+        page_products = sorted_products[start_idx:end_idx]
+
+        # 5. แสดงผลสินค้าเป็น Grid Card (4 คอลัมน์ต่อแถว)
+        num_columns = 4
+        cols = st.columns(num_columns)
+
+        for i, prod in enumerate(page_products):
+            col = cols[i % num_columns]
+            with col:
+                # ดึง URL รูปภาพด้านหน้า (รูปที่ 1)
+                front_img_url = prod["images"][0] if prod.get("images") and prod["images"][0] else None
+
+                # โครงสร้างกรอบการ์ดสี่เหลี่ยม (Square Frame Card)
+                img_html = (
+                    f'<a href="{front_img_url}" target="_blank">'
+                    f'<img src="{front_img_url}" style="width:300px; max-width:100%; height:auto; border-radius:8px; display:block; margin:0 auto 10px auto;">'
+                    f'</a>'
+                    if front_img_url
+                    else '<div style="width:100%; height:200px; background-color:#E5E7EB; display:flex; align-items:center; justify-content:center; border-radius:8px; margin-bottom:10px; color:#9CA3AF;">ไม่มีรูปภาพด้านหน้า</div>'
+                )
+
+                card_html = f"""
+                <div style="
+                    border: 1px solid #E5E7EB;
+                    border-radius: 10px;
+                    padding: 12px;
+                    margin-bottom: 20px;
+                    background-color: #FFFFFF;
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                    text-align: center;
+                ">
+                    {img_html}
+                    <div style="font-weight: bold; font-size: 16px; margin-bottom: 6px; color: #1F2937; line-height: 1.3; height: 42px; overflow: hidden; text-overflow: ellipsis;">
+                        {prod['name']}
+                    </div>
+                    <div style="font-size: 16px; color: #059669; font-weight: bold;">
+                        ฿{prod['selling_price']:,.2f} บาท
+                    </div>
+                </div>
+                """
+                st.markdown(card_html, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        # 6. แถบควบคุมการเปลี่ยนหน้าด้านล่าง (Bottom Pagination Controls & Jump to Page)
+        b_ctrl1, b_ctrl2, b_ctrl3 = st.columns([1, 2, 1])
+
+        with b_ctrl1:
+            if st.button("◄ หน้าก่อนหน้า ", disabled=(st.session_state.current_page <= 1), key="bottom_prev"):
+                st.session_state.current_page -= 1
+                st.rerun()
+
+        with b_ctrl2:
+            # Dropdown กระโดดข้ามหน้า
+            selected_p = st.selectbox(
+                "กระโดดไปยังหน้า:",
+                options=list(range(1, total_pages + 1)),
+                index=st.session_state.current_page - 1,
+                key="jump_page_select"
+            )
+            if selected_p != st.session_state.current_page:
+                st.session_state.current_page = selected_p
+                st.rerun()
+
+        with b_ctrl3:
+            if st.button("หน้าถัดไป ► ", disabled=(st.session_state.current_page >= total_pages), key="bottom_next"):
+                st.session_state.current_page += 1
+                st.rerun()
+
+# ------------------------------------------
+# 3. MENU: เพิ่มสินค้าใหม่
 # ------------------------------------------
 elif menu == "➕ เพิ่มสินค้าใหม่":
     st.header("➕ เพิ่มรายการสินค้าใหม่")
@@ -303,7 +416,7 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                     )
 
 # ------------------------------------------
-# 3. MENU: แก้ไขข้อมูลสินค้า
+# 4. MENU: แก้ไขข้อมูลสินค้า
 # ------------------------------------------
 elif menu == "✏️ แก้ไขข้อมูลสินค้า":
     st.header("✏️ แก้ไขข้อมูลสินค้า")
@@ -378,7 +491,7 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                         st.rerun()
 
 # ------------------------------------------
-# 4. MENU: ลบสินค้า
+# 5. MENU: ลบสินค้า
 # ------------------------------------------
 elif menu == "🗑️ ลบสินค้า":
     st.header("🗑️ ลบรายการสินค้า")
