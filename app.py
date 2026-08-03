@@ -11,8 +11,8 @@ import cloudinary.api
 # Cloudinary Configurations & Constants
 # ==========================================
 JSON_PUBLIC_ID = "product_catalog/catalog_data"
-TARGET_HEIGHT = 2500  # กำหนดความสูงของรูปภาพที่ 2,500 pixels
-TARGET_DPI = (300, 300)  # 🔴 กำหนดความละเอียด DPI ไว้ที่ 300 DPI
+TARGET_HEIGHT = 1920  # 🔴 กำหนดความสูงของรูปภาพใหม่ที่ 1,920 pixels
+TARGET_DPI = (96, 96)  # 🔴 กำหนดความละเอียด DPI ใหม่ไว้ที่ 96 DPI
 
 st.set_page_config(
     page_title="Product Catalog System",
@@ -35,10 +35,10 @@ def init_cloudinary():
         st.stop()
 
 
-def process_image_resolution(file_bytes, target_height=2500, target_dpi=(300, 300)):
+def process_image_resolution(file_bytes, target_height=1920, target_dpi=(96, 96)):
     """
-    ปรับขนาดรูปภาพให้มีความสูง 2,500 pixels
-    และฝังค่าความละเอียดภาพเป็น 300 DPI
+    ปรับขนาดรูปภาพให้มีความสูง 1,920 pixels
+    และฝังค่าความละเอียดภาพเป็น 96 DPI
     """
     try:
         img = Image.open(io.BytesIO(file_bytes))
@@ -56,13 +56,13 @@ def process_image_resolution(file_bytes, target_height=2500, target_dpi=(300, 30
         # ปรับขนาดรูปภาพด้วยอัลกอริทึม LANCZOS
         resized_img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
         
-        # บันทึกลง Memory Buffer พร้อมกำหนดค่า DPI = 300
+        # บันทึกลง Memory Buffer พร้อมกำหนดค่า DPI = 96
         buffer = io.BytesIO()
         resized_img.save(
             buffer, 
             format="JPEG", 
             quality=92, 
-            dpi=target_dpi  # 🔴 ฝังค่า 300 DPI ลงใน EXIF Metadata ของรูปภาพ
+            dpi=target_dpi  # 🔴 ฝังค่า 96 DPI ลงใน EXIF Metadata ของรูปภาพ
         )
         return buffer.getvalue()
     except Exception as e:
@@ -74,9 +74,9 @@ def process_image_resolution(file_bytes, target_height=2500, target_dpi=(300, 30
 # Cloudinary Helper Functions for Images
 # ------------------------------------------
 def upload_image_to_cloudinary(file_bytes, public_id):
-    """ปรับขนาดรูปภาพเป็นความสูง 2,500px + 300 DPI แล้วอัปโหลดไปยัง Cloudinary"""
+    """ปรับขนาดรูปภาพเป็นความสูง 1,920px + 96 DPI แล้วอัปโหลดไปยัง Cloudinary"""
     try:
-        # 🔴 ประมวลผลรูปภาพให้ได้ความสูง 2,500px และความละเอียด 300 DPI ก่อนอัปโหลด
+        # 🔴 ประมวลผลรูปภาพให้ได้ความสูง 1,920px และความละเอียด 96 DPI ก่อนอัปโหลด
         processed_bytes = process_image_resolution(
             file_bytes, 
             target_height=TARGET_HEIGHT, 
@@ -151,7 +151,7 @@ def save_catalog_data(data):
 # Main Application Layout
 # ==========================================
 st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
-st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 2,500px | Resolution: 300 DPI) บน **Cloudinary**")
+st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 1,920px | Resolution: 96 DPI) บน **Cloudinary**")
 
 # ตั้งค่า Cloudinary
 init_cloudinary()
@@ -213,7 +213,7 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายแบบ HD 300 DPI ในหน้าต่างใหม่):**")
+                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายแบบ HD 96 DPI ในหน้าต่างใหม่):**")
                     img_cols = st.columns(3)
                     labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
@@ -235,7 +235,7 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
 # ------------------------------------------
 elif menu == "➕ เพิ่มสินค้าใหม่":
     st.header("➕ เพิ่มรายการสินค้าใหม่")
-    st.info("💡 ภาพถ่ายจะถูกปรับความสูงที่ 2,500px และความละเอียดที่ 300 DPI โดยอัตโนมัติ")
+    st.info("💡 ภาพถ่ายจะถูกปรับความสูงที่ 1,920px และความละเอียดที่ 96 DPI โดยอัตโนมัติ")
 
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อสินค้า *", placeholder="เช่น เสื้อยืด Oversize สีดำ")
@@ -275,7 +275,7 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                 prod_id = f"PROD-{len(products_data) + 1:04d}"
                 image_urls = []
 
-                with st.spinner("กำลังปรับขนาดเป็น 2,500px (300 DPI) และอัปโหลดไปยัง Cloudinary..."):
+                with st.spinner("กำลังปรับขนาดเป็น 1,920px (96 DPI) และอัปโหลดไปยัง Cloudinary..."):
                     for idx, cam in enumerate([cam1, cam2, cam3], 1):
                         if cam:
                             file_bytes = cam.getvalue()
@@ -361,7 +361,7 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 selected_prod["source"] = new_source
                 selected_prod["detail"] = new_detail
 
-                with st.spinner("กำลังประมวลผลรูปถ่าย (300 DPI) และอัปเดตข้อมูล..."):
+                with st.spinner("กำลังประมวลผลรูปถ่าย (96 DPI) และอัปเดตข้อมูล..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
                             old_url = selected_prod["images"][idx]
