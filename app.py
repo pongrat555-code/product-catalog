@@ -107,6 +107,9 @@ def load_catalog_data():
             for item in data:
                 if "opinion" not in item:
                     item["opinion"] = "แท้"
+                # 🔴 หากยังไม่มีข้อมูลพลังพระ ให้ตั้งค่าเริ่มต้นเป็น "ยังไม่จับ"
+                if "power" not in item:
+                    item["power"] = "ยังไม่จับ"
             return data
         return []
     except cloudinary.exceptions.NotFound:
@@ -132,6 +135,16 @@ def save_catalog_data(data):
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดขณะบันทึกข้อมูลแคตตาล็อก: {e}")
         return False
+
+
+def get_power_badge(power_status):
+    """ฟังก์ชันคืนค่าป้ายแสดงผลพลังพระพร้อมไอคอนสี"""
+    if power_status == "มีพลัง":
+        return ":green[🟢 มีพลัง]"
+    elif power_status == "ไม่มีพลัง":
+        return ":red[🔴 ไม่มีพลัง]"
+    else:
+        return ":gray[⚪ ยังไม่จับ]"
 
 
 # ==========================================
@@ -160,7 +173,7 @@ menu = st.sidebar.radio(
 if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
     st.header("📋 รายการพระเครื่องในระบบ")
 
-    search_term = st.text_input("🔍 ค้นหา (ระบุชื่อ, รายละเอียด, แหล่งที่มา หรือแท้/ไม่แท้):", "")
+    search_term = st.text_input("🔍 ค้นหา (ระบุชื่อ, รายละเอียด, แหล่งที่มา, แท้/ไม่แท้ หรือพลังพระ):", "")
 
     filtered_products = [
         p
@@ -169,6 +182,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
         or search_term.lower() in p["detail"].lower()
         or search_term.lower() in p["source"].lower()
         or search_term.lower() in p.get("opinion", "แท้").lower()
+        or search_term.lower() in p.get("power", "ยังไม่จับ").lower()
     ]
 
     if not filtered_products:
@@ -177,7 +191,8 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
         st.write(f"พบทั้งหมด **{len(filtered_products)}** รายการ")
         for prod in filtered_products:
             opinion_status = prod.get("opinion", "แท้")
-            badge_color = ":green[🟢 แท้]" if opinion_status == "แท้" else ":red[🔴 ไม่แท้]"
+            badge_opinion = ":green[🟢 แท้]" if opinion_status == "แท้" else ":red[🔴 ไม่แท้]"
+            badge_power = get_power_badge(prod.get("power", "ยังไม่จับ"))
 
             with st.expander(
                 f"🔹 **{prod['name']}**",
@@ -187,7 +202,8 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
 
                 with col_text:
                     st.write(f"**รหัสพระเครื่อง:** `{prod['id']}`")
-                    st.write(f"**ความคิดเห็นของคุณเอียด:** {badge_color}")
+                    st.write(f"**ความคิดเห็นของคุณเอียด:** {badge_opinion}")
+                    st.write(f"**พลังพระ:** {badge_power}")  # 🔴 แสดงฟิลด์พลังพระ
                     st.write(f"**ราคาต้นทุน:** ฿{prod['cost_price']:,.2f}")
                     st.write(f"**ราคาขาย:** ฿{prod['selling_price']:,.2f}")
                     profit = prod["selling_price"] - prod["cost_price"]
@@ -228,12 +244,22 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อพระเครื่อง *", placeholder="เช่น พระสมเด็จวัดระฆัง พิมพ์ใหญ่")
 
-        opinion = st.radio(
-            "ความคิดเห็นของคุณเอียด *",
-            options=["แท้", "ไม่แท้"],
-            horizontal=True,
-            index=0,
-        )
+        col_op, col_pw = st.columns(2)
+        with col_op:
+            opinion = st.radio(
+                "ความคิดเห็นของคุณเอียด *",
+                options=["แท้", "ไม่แท้"],
+                horizontal=True,
+                index=0,
+            )
+        with col_pw:
+            # 🔴 เพิ่มช่องเลือกพลังพระ
+            power = st.radio(
+                "พลังพระ *",
+                options=["ยังไม่จับ", "ไม่มีพลัง", "มีพลัง"],
+                horizontal=True,
+                index=0,
+            )
 
         col_c, col_s = st.columns(2)
         with col_c:
@@ -283,6 +309,7 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
                     "id": prod_id,
                     "name": name,
                     "opinion": opinion,
+                    "power": power,  # 🔴 บันทึกค่าพลังพระ
                     "cost_price": cost_price,
                     "selling_price": selling_price,
                     "source": source,
@@ -303,10 +330,8 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
     if not products_data:
         st.info("ยังไม่มีข้อมูลพระเครื่องในระบบ")
     else:
-        # 🔴 เพิ่มช่องพิมพ์ค้นหาพระเครื่องที่ต้องการแก้ไข
         edit_search = st.text_input("🔍 พิมพ์ชื่อพระเครื่องหรือรหัสเพื่อค้นหา:", "", key="edit_search_input")
 
-        # กรองรายการพระเครื่องตามคำค้นหา
         filtered_edit_list = [
             p for p in products_data
             if edit_search.lower() in p["name"].lower()
@@ -326,14 +351,29 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
 
                 new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
 
-                current_opinion = selected_prod.get("opinion", "แท้")
-                opinion_index = 0 if current_opinion == "แท้" else 1
-                new_opinion = st.radio(
-                    "ความคิดเห็นของคุณเอียด",
-                    options=["แท้", "ไม่แท้"],
-                    horizontal=True,
-                    index=opinion_index,
-                )
+                col_op, col_pw = st.columns(2)
+                with col_op:
+                    current_opinion = selected_prod.get("opinion", "แท้")
+                    opinion_index = 0 if current_opinion == "แท้" else 1
+                    new_opinion = st.radio(
+                        "ความคิดเห็นของคุณเอียด",
+                        options=["แท้", "ไม่แท้"],
+                        horizontal=True,
+                        index=opinion_index,
+                    )
+
+                with col_pw:
+                    # 🔴 โหลดค่าพลังพระเดิม และสร้างช่องแก้ไข
+                    current_power = selected_prod.get("power", "ยังไม่จับ")
+                    power_options = ["ยังไม่จับ", "ไม่มีพลัง", "มีพลัง"]
+                    power_index = power_options.index(current_power) if current_power in power_options else 0
+
+                    new_power = st.radio(
+                        "พลังพระ",
+                        options=power_options,
+                        horizontal=True,
+                        index=power_index,
+                    )
 
                 col_c, col_s = st.columns(2)
                 with col_c:
@@ -367,6 +407,7 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
                 if update_submitted:
                     selected_prod["name"] = new_name
                     selected_prod["opinion"] = new_opinion
+                    selected_prod["power"] = new_power  # 🔴 อัปเดตค่าพลังพระ
                     selected_prod["cost_price"] = new_cost
                     selected_prod["selling_price"] = new_selling
                     selected_prod["source"] = new_source
