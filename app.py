@@ -180,7 +180,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                 with col_text:
                     st.write(f"**รหัสพระเครื่อง:** `{prod['id']}`")
                     st.write(f"**ราคาต้นทุน:** ฿{prod['cost_price']:,.2f}")
-                    st.write(f"**ราคาปล่อย/ขาย:** ฿{prod['selling_price']:,.2f}")
+                    st.write(f"**ราคาขาย:** ฿{prod['selling_price']:,.2f}")
                     profit = prod["selling_price"] - prod["cost_price"]
                     st.write(f"**กำไรคาดการณ์:** :green[฿{profit:,.2f}]")
                     st.write(f"**แหล่งที่มา:** {prod['source']}")
@@ -200,7 +200,6 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                                     f"</a>",
                                     unsafe_allow_html=True,
                                 )
-                                # 🔴 จัดข้อความระบุมุมมองให้อยู่กึ่งกลาง
                                 st.markdown(
                                     f"<div style='text-align: center; font-size: 14px; color: #6B7280;'>{labels[idx]}</div>",
                                     unsafe_allow_html=True,
@@ -227,7 +226,7 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
             )
         with col_s:
             selling_price = st.number_input(
-                "ราคาปล่อย/ขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
+                "ราคาขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
             )
 
         source = st.text_input("แหล่งที่มาของพระเครื่อง", placeholder="เช่น รังพระท่าพระจันทร์ / สายตรง")
@@ -304,7 +303,7 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
                 )
             with col_s:
                 new_selling = st.number_input(
-                    "ราคาปล่อย/ขาย (บาท)",
+                    "ราคาขาย (บาท)",
                     value=float(selected_prod["selling_price"]),
                     min_value=0.0,
                 )
