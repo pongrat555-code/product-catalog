@@ -137,7 +137,6 @@ init_cloudinary()
 products_data = load_catalog_data()
 
 st.title("📦 ระบบแคตตาล็อกพระเครื่อง")
-st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 1,920px | Resolution: 96 DPI) บน **Cloudinary**")
 
 # Sidebar Navigation
 st.sidebar.title("📌 เมนูหลัก")
@@ -188,7 +187,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพพระเครื่อง (คลิกที่รูปเพื่อขยายแบบ HD 96 DPI ในหน้าต่างใหม่):**")
+                    st.write("**📷 รูปภาพพระเครื่อง (คลิกที่รูปเพื่อขยายในหน้าต่างใหม่):**")
                     img_cols = st.columns(3)
                     labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
@@ -210,7 +209,6 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
 # ------------------------------------------
 elif menu == "➕ เพิ่มพระเครื่องใหม่":
     st.header("➕ เพิ่มรายการพระเครื่องใหม่")
-    st.info("💡 ภาพถ่ายจะถูกปรับความสูงที่ 1,920px และความละเอียดที่ 96 DPI โดยอัตโนมัติ")
 
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อพระเครื่อง *", placeholder="เช่น พระสมเด็จวัดระฆัง พิมพ์ใหญ่")
@@ -250,7 +248,7 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
                 prod_id = f"PROD-{len(products_data) + 1:04d}"
                 image_urls = []
 
-                with st.spinner("กำลังปรับขนาดเป็น 1,920px (96 DPI) และอัปโหลดไปยัง Cloudinary..."):
+                with st.spinner("กำลังประมวลผลและอัปโหลดรูปภาพ..."):
                     for idx, cam in enumerate([cam1, cam2, cam3], 1):
                         if cam:
                             file_bytes = cam.getvalue()
@@ -326,7 +324,7 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
                 selected_prod["source"] = new_source
                 selected_prod["detail"] = new_detail
 
-                with st.spinner("กำลังประมวลผลรูปถ่าย (96 DPI) และอัปเดตข้อมูล..."):
+                with st.spinner("กำลังประมวลผลรูปถ่ายและอัปเดตข้อมูล..."):
                     for idx, cam in enumerate([cam1, cam2, cam3]):
                         if cam:
                             old_url = selected_prod["images"][idx]
@@ -360,7 +358,7 @@ elif menu == "🗑️ ลบพระเครื่อง":
 
         confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจากระบบถาวร")
         if st.button("❌ ยืนยันลบพระเครื่อง", disabled=not confirm):
-            with st.spinner("กำลังลบรูปภาพและข้อมูลบน Cloudinary..."):
+            with st.spinner("กำลังลบรูปภาพและข้อมูล..."):
                 for img_url in selected_prod.get("images", []):
                     if img_url:
                         delete_image_from_cloudinary(img_url)
