@@ -200,10 +200,16 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                                     f"</a>",
                                     unsafe_allow_html=True,
                                 )
-                                # 🔴 ลบไอคอน 🔍 ออกแล้ว เหลือเฉพาะข้อความระบุมุมมอง
-                                st.caption(labels[idx])
+                                # 🔴 จัดข้อความระบุมุมมองให้อยู่กึ่งกลาง
+                                st.markdown(
+                                    f"<div style='text-align: center; font-size: 14px; color: #6B7280;'>{labels[idx]}</div>",
+                                    unsafe_allow_html=True,
+                                )
                             else:
-                                st.caption(f"ไม่มีรูป {labels[idx]}")
+                                st.markdown(
+                                    f"<div style='text-align: center; font-size: 14px; color: #9CA3AF;'>ไม่มีรูป {labels[idx]}</div>",
+                                    unsafe_allow_html=True,
+                                )
 
 # ------------------------------------------
 # 2. MENU: เพิ่มพระเครื่องใหม่
