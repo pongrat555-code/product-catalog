@@ -139,7 +139,7 @@ products_data = load_catalog_data()
 st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
 st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 1,920px | Resolution: 96 DPI) บน **Cloudinary**")
 
-# Sidebar Navigation (ไม่มีเมนูดัชนีแล้ว)
+# Sidebar Navigation
 st.sidebar.title("📌 เมนูหลัก")
 menu = st.sidebar.radio(
     "เลือกรายการทำรายการ:",
@@ -150,9 +150,6 @@ menu = st.sidebar.radio(
         "🗑️ ลบสินค้า",
     ],
 )
-
-st.sidebar.markdown("---")
-st.sidebar.caption("📱 รองรับการถ่ายภาพสินค้า 3 มุมมองด้วยกล้องโทรศัพท์มือถือ")
 
 # ------------------------------------------
 # 1. MENU: แสดงสินค้าทั้งหมด / ค้นหา
