@@ -187,7 +187,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพพระเครื่อง (คลิกที่รูปเพื่อขยายในหน้าต่างใหม่):**")
+                    st.write("**📷 รูปภาพพระเครื่อง:**")
                     img_cols = st.columns(3)
                     labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
@@ -200,7 +200,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                                     f"</a>",
                                     unsafe_allow_html=True,
                                 )
-                                st.caption(f"🔍 {labels[idx]} (คลิกเพื่อขยาย)")
+                                st.caption(f"🔍 {labels[idx]}")
                             else:
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
