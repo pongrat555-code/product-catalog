@@ -104,7 +104,6 @@ def load_catalog_data():
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
-            # ตรวจสอบว่าถ้าข้อมูลเก่าไม่มีฟิลด์ opinion ให้กำหนดค่าเริ่มต้นเป็น "แท้"
             for item in data:
                 if "opinion" not in item:
                     item["opinion"] = "แท้"
@@ -177,12 +176,12 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
     else:
         st.write(f"พบทั้งหมด **{len(filtered_products)}** รายการ")
         for prod in filtered_products:
-            # ดึงค่าความคิดเห็นของคุณเอียด
             opinion_status = prod.get("opinion", "แท้")
             badge_color = ":green[🟢 แท้]" if opinion_status == "แท้" else ":red[🔴 ไม่แท้]"
 
+            # 🔴 แก้ไขหัวข้อ Expander แสดงเฉพาะชื่อพระเครื่อง
             with st.expander(
-                f"🔹 **{prod['name']}** | ความคิดเห็นของคุณเอียด: {opinion_status}",
+                f"🔹 **{prod['name']}**",
                 expanded=True,
             ):
                 col_text, col_img = st.columns([1, 1])
@@ -230,7 +229,6 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อพระเครื่อง *", placeholder="เช่น พระสมเด็จวัดระฆัง พิมพ์ใหญ่")
 
-        # 🔴 เพิ่มช่องเลือก ความคิดเห็นของคุณเอียด
         opinion = st.radio(
             "ความคิดเห็นของคุณเอียด *",
             options=["แท้", "ไม่แท้"],
@@ -285,7 +283,7 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
                 new_product = {
                     "id": prod_id,
                     "name": name,
-                    "opinion": opinion,  # 🔴 บันทึกค่าความคิดเห็นของคุณเอียด
+                    "opinion": opinion,
                     "cost_price": cost_price,
                     "selling_price": selling_price,
                     "source": source,
@@ -315,7 +313,6 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
 
             new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
 
-            # 🔴 ตัวเลือกแก้ไข ความคิดเห็นของคุณเอียด
             current_opinion = selected_prod.get("opinion", "แท้")
             opinion_index = 0 if current_opinion == "แท้" else 1
             new_opinion = st.radio(
@@ -356,7 +353,7 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
 
             if update_submitted:
                 selected_prod["name"] = new_name
-                selected_prod["opinion"] = new_opinion  # 🔴 อัปเดตค่าความคิดเห็นของคุณเอียด
+                selected_prod["opinion"] = new_opinion
                 selected_prod["cost_price"] = new_cost
                 selected_prod["selling_price"] = new_selling
                 selected_prod["source"] = new_source
