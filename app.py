@@ -144,18 +144,18 @@ st.sidebar.title("📌 เมนูหลัก")
 menu = st.sidebar.radio(
     "เลือกรายการทำรายการ:",
     [
-        "🔍 แสดงสินค้า / ค้นหา",
-        "➕ เพิ่มสินค้าใหม่",
-        "✏️ แก้ไขข้อมูลสินค้า",
-        "🗑️ ลบสินค้า",
+        "🔍 แสดงพระเครื่อง / ค้นหา",
+        "➕ เพิ่มพระเครื่องใหม่",
+        "✏️ แก้ไขข้อมูลพระเครื่อง",
+        "🗑️ ลบพระเครื่อง",
     ],
 )
 
 # ------------------------------------------
-# 1. MENU: แสดงสินค้าทั้งหมด / ค้นหา
+# 1. MENU: แสดงพระเครื่องทั้งหมด / ค้นหา
 # ------------------------------------------
-if menu == "🔍 แสดงสินค้า / ค้นหา":
-    st.header("📋 รายการสินค้าในระบบ")
+if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
+    st.header("📋 รายการพระเครื่องในระบบ")
 
     search_term = st.text_input("🔍 ค้นหา (ระบุชื่อ, รายละเอียด หรือแหล่งที่มา):", "")
 
@@ -168,27 +168,27 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
     ]
 
     if not filtered_products:
-        st.info("ไม่พบรายการสินค้าที่ตรงกับคำค้นหา")
+        st.info("ไม่พบรายการพระเครื่องที่ตรงกับคำค้นหา")
     else:
         st.write(f"พบทั้งหมด **{len(filtered_products)}** รายการ")
         for prod in filtered_products:
             with st.expander(
-                f"🔹 **{prod['name']}** | ราคาขาย: ฿{prod['selling_price']:,.2f}",
+                f"🔹 **{prod['name']}** | ราคาปล่อย/ขาย: ฿{prod['selling_price']:,.2f}",
                 expanded=True,
             ):
                 col_text, col_img = st.columns([1, 1])
 
                 with col_text:
-                    st.write(f"**รหัสสินค้า:** `{prod['id']}`")
+                    st.write(f"**รหัสพระเครื่อง:** `{prod['id']}`")
                     st.write(f"**ราคาต้นทุน:** ฿{prod['cost_price']:,.2f}")
-                    st.write(f"**ราคาขาย:** ฿{prod['selling_price']:,.2f}")
+                    st.write(f"**ราคาปล่อย/ขาย:** ฿{prod['selling_price']:,.2f}")
                     profit = prod["selling_price"] - prod["cost_price"]
                     st.write(f"**กำไรคาดการณ์:** :green[฿{profit:,.2f}]")
                     st.write(f"**แหล่งที่มา:** {prod['source']}")
                     st.write(f"**รายละเอียด:**\n{prod['detail']}")
 
                 with col_img:
-                    st.write("**📷 รูปภาพสินค้า (คลิกที่รูปเพื่อขยายแบบ HD 96 DPI ในหน้าต่างใหม่):**")
+                    st.write("**📷 รูปภาพพระเครื่อง (คลิกที่รูปเพื่อขยายแบบ HD 96 DPI ในหน้าต่างใหม่):**")
                     img_cols = st.columns(3)
                     labels = ["ด้านหน้า", "ด้านหลัง", "ด้านข้าง"]
 
@@ -206,14 +206,14 @@ if menu == "🔍 แสดงสินค้า / ค้นหา":
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
 # ------------------------------------------
-# 2. MENU: เพิ่มสินค้าใหม่
+# 2. MENU: เพิ่มพระเครื่องใหม่
 # ------------------------------------------
-elif menu == "➕ เพิ่มสินค้าใหม่":
-    st.header("➕ เพิ่มรายการสินค้าใหม่")
+elif menu == "➕ เพิ่มพระเครื่องใหม่":
+    st.header("➕ เพิ่มรายการพระเครื่องใหม่")
     st.info("💡 ภาพถ่ายจะถูกปรับความสูงที่ 1,920px และความละเอียดที่ 96 DPI โดยอัตโนมัติ")
 
     with st.form("add_product_form", clear_on_submit=True):
-        name = st.text_input("ชื่อสินค้า *", placeholder="เช่น พระสมเด็จวัดระฆัง")
+        name = st.text_input("ชื่อพระเครื่อง *", placeholder="เช่น พระสมเด็จวัดระฆัง พิมพ์ใหญ่")
 
         col_c, col_s = st.columns(2)
         with col_c:
@@ -222,13 +222,13 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
             )
         with col_s:
             selling_price = st.number_input(
-                "ราคาขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
+                "ราคาปล่อย/ขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
             )
 
-        source = st.text_input("แหล่งที่มาของสินค้า", placeholder="เช่น รังพระท่าพระจันทร์ / สายตรง")
-        detail = st.text_area("รายละเอียดสินค้า", placeholder="ระบุพิมพ์ทรง เนื้อหา สภาพพระ หรือข้อมูลเพิ่มเติม...")
+        source = st.text_input("แหล่งที่มาของพระเครื่อง", placeholder="เช่น รังพระท่าพระจันทร์ / สายตรง")
+        detail = st.text_area("รายละเอียดพระเครื่อง", placeholder="ระบุพิมพ์ทรง เนื้อหา สภาพพระ หรือข้อมูลเพิ่มเติม...")
 
-        st.subheader("📷 ถ่ายรูปสินค้า 3 รูป")
+        st.subheader("📷 ถ่ายรูปพระเครื่อง 3 รูป")
         col_i1, col_i2, col_i3 = st.columns(3)
 
         with col_i1:
@@ -241,11 +241,11 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
             st.markdown("**รูปที่ 3: ด้านข้าง**")
             cam3 = st.camera_input("ถ่ายรูปด้านข้าง", key="add_cam3")
 
-        submitted = st.form_submit_button("💾 บันทึกสินค้า")
+        submitted = st.form_submit_button("💾 บันทึกพระเครื่อง")
 
         if submitted:
             if not name:
-                st.error("❌ กรุณากรอกชื่อสินค้า")
+                st.error("❌ กรุณากรอกชื่อพระเครื่อง")
             else:
                 prod_id = f"PROD-{len(products_data) + 1:04d}"
                 image_urls = []
@@ -271,25 +271,25 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
 
                 products_data.append(new_product)
                 if save_catalog_data(products_data):
-                    st.success(f"✅ บันทึกสินค้า '{name}' เรียบร้อยแล้ว (รหัสสินค้า: {prod_id})")
+                    st.success(f"✅ บันทึกพระเครื่อง '{name}' เรียบร้อยแล้ว (รหัสพระเครื่อง: {prod_id})")
 
 # ------------------------------------------
-# 3. MENU: แก้ไขข้อมูลสินค้า
+# 3. MENU: แก้ไขข้อมูลพระเครื่อง
 # ------------------------------------------
-elif menu == "✏️ แก้ไขข้อมูลสินค้า":
-    st.header("✏️ แก้ไขข้อมูลสินค้า")
+elif menu == "✏️ แก้ไขข้อมูลพระเครื่อง":
+    st.header("✏️ แก้ไขข้อมูลพระเครื่อง")
 
     if not products_data:
-        st.info("ยังไม่มีข้อมูลสินค้าในระบบ")
+        st.info("ยังไม่มีข้อมูลพระเครื่องในระบบ")
     else:
         prod_options = {f"{p['id']} - {p['name']}": p for p in products_data}
-        selected_option = st.selectbox("เลือกสินค้าที่ต้องการแก้ไข:", list(prod_options.keys()))
+        selected_option = st.selectbox("เลือกพระเครื่องที่ต้องการแก้ไข:", list(prod_options.keys()))
         selected_prod = prod_options[selected_option]
 
         with st.form("edit_product_form"):
-            st.write(f"กำลังแก้ไขรหัสสินค้า: **{selected_prod['id']}**")
+            st.write(f"กำลังแก้ไขรหัสพระเครื่อง: **{selected_prod['id']}**")
 
-            new_name = st.text_input("ชื่อสินค้า", value=selected_prod["name"])
+            new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
             col_c, col_s = st.columns(2)
             with col_c:
                 new_cost = st.number_input(
@@ -299,13 +299,13 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                 )
             with col_s:
                 new_selling = st.number_input(
-                    "ราคาขาย (บาท)",
+                    "ราคาปล่อย/ขาย (บาท)",
                     value=float(selected_prod["selling_price"]),
                     min_value=0.0,
                 )
 
-            new_source = st.text_input("แหล่งที่มาของสินค้า", value=selected_prod["source"])
-            new_detail = st.text_area("รายละเอียดสินค้า", value=selected_prod["detail"])
+            new_source = st.text_input("แหล่งที่มาของพระเครื่อง", value=selected_prod["source"])
+            new_detail = st.text_area("รายละเอียดพระเครื่อง", value=selected_prod["detail"])
 
             st.subheader("📷 ถ่ายรูปใหม่เพื่อเปลี่ยนรูปเดิม")
             col_i1, col_i2, col_i3 = st.columns(3)
@@ -338,28 +338,28 @@ elif menu == "✏️ แก้ไขข้อมูลสินค้า":
                             selected_prod["images"][idx] = new_url
 
                     if save_catalog_data(products_data):
-                        st.success("✅ อัปเดตข้อมูลสินค้าสำเร็จ!")
+                        st.success("✅ อัปเดตข้อมูลพระเครื่องสำเร็จ!")
                         st.rerun()
 
 # ------------------------------------------
-# 4. MENU: ลบสินค้า
+# 4. MENU: ลบพระเครื่อง
 # ------------------------------------------
-elif menu == "🗑️ ลบสินค้า":
-    st.header("🗑️ ลบรายการสินค้า")
+elif menu == "🗑️ ลบพระเครื่อง":
+    st.header("🗑️ ลบรายการพระเครื่อง")
 
     if not products_data:
-        st.info("ยังไม่มีข้อมูลสินค้าในระบบ")
+        st.info("ยังไม่มีข้อมูลพระเครื่องในระบบ")
     else:
         prod_options = {f"{p['id']} - {p['name']}": p for p in products_data}
-        selected_option = st.selectbox("เลือกสินค้าที่ต้องการแก้ไข/ลบ:", list(prod_options.keys()))
+        selected_option = st.selectbox("เลือกพระเครื่องที่ต้องการแก้ไข/ลบ:", list(prod_options.keys()))
         selected_prod = prod_options[selected_option]
 
         st.warning(
-            f"⚠️ คุณกำลังจะลบรายการ: **{selected_prod['name']}** (รหัสสินค้า: {selected_prod['id']})"
+            f"⚠️ คุณกำลังจะลบรายการ: **{selected_prod['name']}** (รหัสพระเครื่อง: {selected_prod['id']})"
         )
 
         confirm = st.checkbox("ยืนยันการลบรายการนี้ออกจากระบบถาวร")
-        if st.button("❌ ยืนยันลบสินค้า", disabled=not confirm):
+        if st.button("❌ ยืนยันลบพระเครื่อง", disabled=not confirm):
             with st.spinner("กำลังลบรูปภาพและข้อมูลบน Cloudinary..."):
                 for img_url in selected_prod.get("images", []):
                     if img_url:
@@ -367,5 +367,5 @@ elif menu == "🗑️ ลบสินค้า":
 
                 products_data = [p for p in products_data if p["id"] != selected_prod["id"]]
                 if save_catalog_data(products_data):
-                    st.success("✅ ลบสินค้าเรียบร้อยแล้ว!")
+                    st.success("✅ ลบพระเครื่องเรียบร้อยแล้ว!")
                     st.rerun()
