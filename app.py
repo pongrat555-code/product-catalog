@@ -172,7 +172,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
         st.write(f"พบทั้งหมด **{len(filtered_products)}** รายการ")
         for prod in filtered_products:
             with st.expander(
-                f"🔹 **{prod['name']}** | ราคาปล่อย/ขาย: ฿{prod['selling_price']:,.2f}",
+                f"🔹 **{prod['name']}**",
                 expanded=True,
             ):
                 col_text, col_img = st.columns([1, 1])
