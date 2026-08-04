@@ -179,7 +179,6 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
             opinion_status = prod.get("opinion", "แท้")
             badge_color = ":green[🟢 แท้]" if opinion_status == "แท้" else ":red[🔴 ไม่แท้]"
 
-            # 🔴 แก้ไขหัวข้อ Expander แสดงเฉพาะชื่อพระเครื่อง
             with st.expander(
                 f"🔹 **{prod['name']}**",
                 expanded=True,
@@ -304,75 +303,89 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
     if not products_data:
         st.info("ยังไม่มีข้อมูลพระเครื่องในระบบ")
     else:
-        prod_options = {f"{p['id']} - {p['name']}": p for p in products_data}
-        selected_option = st.selectbox("เลือกพระเครื่องที่ต้องการแก้ไข:", list(prod_options.keys()))
-        selected_prod = prod_options[selected_option]
+        # 🔴 เพิ่มช่องพิมพ์ค้นหาพระเครื่องที่ต้องการแก้ไข
+        edit_search = st.text_input("🔍 พิมพ์ชื่อพระเครื่องหรือรหัสเพื่อค้นหา:", "", key="edit_search_input")
 
-        with st.form("edit_product_form"):
-            st.write(f"กำลังแก้ไขรหัสพระเครื่อง: **{selected_prod['id']}**")
+        # กรองรายการพระเครื่องตามคำค้นหา
+        filtered_edit_list = [
+            p for p in products_data
+            if edit_search.lower() in p["name"].lower()
+            or edit_search.lower() in p["id"].lower()
+            or edit_search.lower() in p["detail"].lower()
+        ]
 
-            new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
+        if not filtered_edit_list:
+            st.warning("ไม่พบพระเครื่องที่ตรงกับคำค้นหา")
+        else:
+            prod_options = {f"{p['id']} - {p['name']}": p for p in filtered_edit_list}
+            selected_option = st.selectbox("เลือกพระเครื่องที่ต้องการแก้ไข:", list(prod_options.keys()))
+            selected_prod = prod_options[selected_option]
 
-            current_opinion = selected_prod.get("opinion", "แท้")
-            opinion_index = 0 if current_opinion == "แท้" else 1
-            new_opinion = st.radio(
-                "ความคิดเห็นของคุณเอียด",
-                options=["แท้", "ไม่แท้"],
-                horizontal=True,
-                index=opinion_index,
-            )
+            with st.form("edit_product_form"):
+                st.write(f"กำลังแก้ไขรหัสพระเครื่อง: **{selected_prod['id']}**")
 
-            col_c, col_s = st.columns(2)
-            with col_c:
-                new_cost = st.number_input(
-                    "ราคาต้นทุน (บาท)",
-                    value=float(selected_prod["cost_price"]),
-                    min_value=0.0,
+                new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
+
+                current_opinion = selected_prod.get("opinion", "แท้")
+                opinion_index = 0 if current_opinion == "แท้" else 1
+                new_opinion = st.radio(
+                    "ความคิดเห็นของคุณเอียด",
+                    options=["แท้", "ไม่แท้"],
+                    horizontal=True,
+                    index=opinion_index,
                 )
-            with col_s:
-                new_selling = st.number_input(
-                    "ราคาขาย (บาท)",
-                    value=float(selected_prod["selling_price"]),
-                    min_value=0.0,
-                )
 
-            new_source = st.text_input("แหล่งที่มาของพระเครื่อง", value=selected_prod["source"])
-            new_detail = st.text_area("รายละเอียดพระเครื่อง", value=selected_prod["detail"])
+                col_c, col_s = st.columns(2)
+                with col_c:
+                    new_cost = st.number_input(
+                        "ราคาต้นทุน (บาท)",
+                        value=float(selected_prod["cost_price"]),
+                        min_value=0.0,
+                    )
+                with col_s:
+                    new_selling = st.number_input(
+                        "ราคาขาย (บาท)",
+                        value=float(selected_prod["selling_price"]),
+                        min_value=0.0,
+                    )
 
-            st.subheader("📷 ถ่ายรูปใหม่เพื่อเปลี่ยนรูปเดิม")
-            col_i1, col_i2, col_i3 = st.columns(3)
+                new_source = st.text_input("แหล่งที่มาของพระเครื่อง", value=selected_prod["source"])
+                new_detail = st.text_area("รายละเอียดพระเครื่อง", value=selected_prod["detail"])
 
-            with col_i1:
-                cam1 = st.camera_input("ถ่ายใหม่ รูปด้านหน้า", key="edit_cam1")
-            with col_i2:
-                cam2 = st.camera_input("ถ่ายใหม่ รูปด้านหลัง", key="edit_cam2")
-            with col_i3:
-                cam3 = st.camera_input("ถ่ายใหม่ รูปด้านข้าง", key="edit_cam3")
+                st.subheader("📷 ถ่ายรูปใหม่เพื่อเปลี่ยนรูปเดิม")
+                col_i1, col_i2, col_i3 = st.columns(3)
 
-            update_submitted = st.form_submit_button("🔄 อัปเดตข้อมูล")
+                with col_i1:
+                    cam1 = st.camera_input("ถ่ายใหม่ รูปด้านหน้า", key="edit_cam1")
+                with col_i2:
+                    cam2 = st.camera_input("ถ่ายใหม่ รูปด้านหลัง", key="edit_cam2")
+                with col_i3:
+                    cam3 = st.camera_input("ถ่ายใหม่ รูปด้านข้าง", key="edit_cam3")
 
-            if update_submitted:
-                selected_prod["name"] = new_name
-                selected_prod["opinion"] = new_opinion
-                selected_prod["cost_price"] = new_cost
-                selected_prod["selling_price"] = new_selling
-                selected_prod["source"] = new_source
-                selected_prod["detail"] = new_detail
+                update_submitted = st.form_submit_button("🔄 อัปเดตข้อมูล")
 
-                with st.spinner("กำลังประมวลผลรูปถ่ายและอัปเดตข้อมูล..."):
-                    for idx, cam in enumerate([cam1, cam2, cam3]):
-                        if cam:
-                            old_url = selected_prod["images"][idx]
-                            delete_image_from_cloudinary(old_url)
+                if update_submitted:
+                    selected_prod["name"] = new_name
+                    selected_prod["opinion"] = new_opinion
+                    selected_prod["cost_price"] = new_cost
+                    selected_prod["selling_price"] = new_selling
+                    selected_prod["source"] = new_source
+                    selected_prod["detail"] = new_detail
 
-                            new_url = upload_image_to_cloudinary(
-                                cam.getvalue(), f"{selected_prod['id']}_img{idx+1}"
-                            )
-                            selected_prod["images"][idx] = new_url
+                    with st.spinner("กำลังประมวลผลรูปถ่ายและอัปเดตข้อมูล..."):
+                        for idx, cam in enumerate([cam1, cam2, cam3]):
+                            if cam:
+                                old_url = selected_prod["images"][idx]
+                                delete_image_from_cloudinary(old_url)
 
-                    if save_catalog_data(products_data):
-                        st.success("✅ อัปเดตข้อมูลพระเครื่องสำเร็จ!")
-                        st.rerun()
+                                new_url = upload_image_to_cloudinary(
+                                    cam.getvalue(), f"{selected_prod['id']}_img{idx+1}"
+                                )
+                                selected_prod["images"][idx] = new_url
+
+                        if save_catalog_data(products_data):
+                            st.success("✅ อัปเดตข้อมูลพระเครื่องสำเร็จ!")
+                            st.rerun()
 
 # ------------------------------------------
 # 4. MENU: ลบพระเครื่อง
