@@ -200,7 +200,8 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
                                     f"</a>",
                                     unsafe_allow_html=True,
                                 )
-                                st.caption(f"🔍 {labels[idx]}")
+                                # 🔴 ลบไอคอน 🔍 ออกแล้ว เหลือเฉพาะข้อความระบุมุมมอง
+                                st.caption(labels[idx])
                             else:
                                 st.caption(f"ไม่มีรูป {labels[idx]}")
 
