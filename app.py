@@ -15,7 +15,7 @@ TARGET_HEIGHT = 1920
 TARGET_DPI = (96, 96)
 
 st.set_page_config(
-    page_title="Product Catalog System",
+    page_title="ระบบแคตตาล็อกพระเครื่อง",
     page_icon="📦",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -136,7 +136,7 @@ def save_catalog_data(data):
 init_cloudinary()
 products_data = load_catalog_data()
 
-st.title("📦 ระบบแคตตาล็อกสินค้า (Cloudinary Only)")
+st.title("📦 ระบบแคตตาล็อกพระเครื่อง")
 st.caption("จัดเก็บรูปภาพความละเอียดสูง (Height: 1,920px | Resolution: 96 DPI) บน **Cloudinary**")
 
 # Sidebar Navigation
@@ -213,7 +213,7 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
     st.info("💡 ภาพถ่ายจะถูกปรับความสูงที่ 1,920px และความละเอียดที่ 96 DPI โดยอัตโนมัติ")
 
     with st.form("add_product_form", clear_on_submit=True):
-        name = st.text_input("ชื่อสินค้า *", placeholder="เช่น เสื้อยืด Oversize สีดำ")
+        name = st.text_input("ชื่อสินค้า *", placeholder="เช่น พระสมเด็จวัดระฆัง")
 
         col_c, col_s = st.columns(2)
         with col_c:
@@ -225,8 +225,8 @@ elif menu == "➕ เพิ่มสินค้าใหม่":
                 "ราคาขาย (บาท) *", min_value=0.0, step=10.0, format="%.2f"
             )
 
-        source = st.text_input("แหล่งที่มาของสินค้า", placeholder="เช่น โรงงานประตูน้ำ / Supplier A")
-        detail = st.text_area("รายละเอียดสินค้า", placeholder="ระบุขนาด สเปก สี หรือข้อมูลเพิ่มเติม...")
+        source = st.text_input("แหล่งที่มาของสินค้า", placeholder="เช่น รังพระท่าพระจันทร์ / สายตรง")
+        detail = st.text_area("รายละเอียดสินค้า", placeholder="ระบุพิมพ์ทรง เนื้อหา สภาพพระ หรือข้อมูลเพิ่มเติม...")
 
         st.subheader("📷 ถ่ายรูปสินค้า 3 รูป")
         col_i1, col_i2, col_i3 = st.columns(3)
