@@ -103,7 +103,12 @@ def load_catalog_data():
         url = resource.get("secure_url")
         response = requests.get(url)
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            # ตรวจสอบว่าถ้าข้อมูลเก่าไม่มีฟิลด์ opinion ให้กำหนดค่าเริ่มต้นเป็น "แท้"
+            for item in data:
+                if "opinion" not in item:
+                    item["opinion"] = "แท้"
+            return data
         return []
     except cloudinary.exceptions.NotFound:
         return []
@@ -156,7 +161,7 @@ menu = st.sidebar.radio(
 if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
     st.header("📋 รายการพระเครื่องในระบบ")
 
-    search_term = st.text_input("🔍 ค้นหา (ระบุชื่อ, รายละเอียด หรือแหล่งที่มา):", "")
+    search_term = st.text_input("🔍 ค้นหา (ระบุชื่อ, รายละเอียด, แหล่งที่มา หรือแท้/ไม่แท้):", "")
 
     filtered_products = [
         p
@@ -164,6 +169,7 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
         if search_term.lower() in p["name"].lower()
         or search_term.lower() in p["detail"].lower()
         or search_term.lower() in p["source"].lower()
+        or search_term.lower() in p.get("opinion", "แท้").lower()
     ]
 
     if not filtered_products:
@@ -171,14 +177,19 @@ if menu == "🔍 แสดงพระเครื่อง / ค้นหา":
     else:
         st.write(f"พบทั้งหมด **{len(filtered_products)}** รายการ")
         for prod in filtered_products:
+            # ดึงค่าความคิดเห็นของคุณเอียด
+            opinion_status = prod.get("opinion", "แท้")
+            badge_color = ":green[🟢 แท้]" if opinion_status == "แท้" else ":red[🔴 ไม่แท้]"
+
             with st.expander(
-                f"🔹 **{prod['name']}**",
+                f"🔹 **{prod['name']}** | ความคิดเห็นของคุณเอียด: {opinion_status}",
                 expanded=True,
             ):
                 col_text, col_img = st.columns([1, 1])
 
                 with col_text:
                     st.write(f"**รหัสพระเครื่อง:** `{prod['id']}`")
+                    st.write(f"**ความคิดเห็นของคุณเอียด:** {badge_color}")
                     st.write(f"**ราคาต้นทุน:** ฿{prod['cost_price']:,.2f}")
                     st.write(f"**ราคาขาย:** ฿{prod['selling_price']:,.2f}")
                     profit = prod["selling_price"] - prod["cost_price"]
@@ -218,6 +229,14 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
 
     with st.form("add_product_form", clear_on_submit=True):
         name = st.text_input("ชื่อพระเครื่อง *", placeholder="เช่น พระสมเด็จวัดระฆัง พิมพ์ใหญ่")
+
+        # 🔴 เพิ่มช่องเลือก ความคิดเห็นของคุณเอียด
+        opinion = st.radio(
+            "ความคิดเห็นของคุณเอียด *",
+            options=["แท้", "ไม่แท้"],
+            horizontal=True,
+            index=0,
+        )
 
         col_c, col_s = st.columns(2)
         with col_c:
@@ -266,6 +285,7 @@ elif menu == "➕ เพิ่มพระเครื่องใหม่":
                 new_product = {
                     "id": prod_id,
                     "name": name,
+                    "opinion": opinion,  # 🔴 บันทึกค่าความคิดเห็นของคุณเอียด
                     "cost_price": cost_price,
                     "selling_price": selling_price,
                     "source": source,
@@ -294,6 +314,17 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
             st.write(f"กำลังแก้ไขรหัสพระเครื่อง: **{selected_prod['id']}**")
 
             new_name = st.text_input("ชื่อพระเครื่อง", value=selected_prod["name"])
+
+            # 🔴 ตัวเลือกแก้ไข ความคิดเห็นของคุณเอียด
+            current_opinion = selected_prod.get("opinion", "แท้")
+            opinion_index = 0 if current_opinion == "แท้" else 1
+            new_opinion = st.radio(
+                "ความคิดเห็นของคุณเอียด",
+                options=["แท้", "ไม่แท้"],
+                horizontal=True,
+                index=opinion_index,
+            )
+
             col_c, col_s = st.columns(2)
             with col_c:
                 new_cost = st.number_input(
@@ -325,6 +356,7 @@ elif menu == "✏️ แก้ไขข้อมูลพระเครื่�
 
             if update_submitted:
                 selected_prod["name"] = new_name
+                selected_prod["opinion"] = new_opinion  # 🔴 อัปเดตค่าความคิดเห็นของคุณเอียด
                 selected_prod["cost_price"] = new_cost
                 selected_prod["selling_price"] = new_selling
                 selected_prod["source"] = new_source
